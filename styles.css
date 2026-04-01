@@ -143,3 +143,47 @@ body.kanban-drag-active .kanban-item:not(.sortable-chosen):not(.sortable-drag){t
 @media (prefers-reduced-motion: reduce){
   .kanban-item,.kanban-list,.kanban-item::before,.kanban-item::after{transition:none !important}
 }
+
+
+/* v6 mobile figma compact */
+@media (max-width: 768px){
+  body.mobile-figma-compact .max-w-7xl{padding-left:.55rem;padding-right:.55rem}
+  body.mobile-figma-compact .mobile-top-nav{margin-bottom:.65rem;padding:.42rem;border-radius:.9rem;gap:.42rem}
+  body.mobile-figma-compact .mobile-nav-btn{padding:.68rem .5rem;font-size:.8rem;border-radius:.82rem}
+  body.mobile-figma-compact #controlsSection,
+  body.mobile-figma-compact #boardSection,
+  body.mobile-figma-compact #previewSection{padding:.78rem;border-radius:1rem}
+  body.mobile-figma-compact #boardSection .flex.items-center.justify-between.mb-3{margin-bottom:.6rem}
+  body.mobile-figma-compact #boardSection h2{font-size:1.22rem;font-weight:900;color:#111827;display:flex;align-items:center;gap:.45rem}
+  body.mobile-figma-compact #boardSection h2::before{content:'☝️';font-size:1.18rem}
+  body.mobile-figma-compact #boardSection .text-xs.text-slate-400{display:inline-flex;align-items:center;justify-content:center;padding:.7rem .95rem;border-radius:1rem;background:#eef2ff;color:#4f46e5;font-size:.92rem;font-weight:900;border:1px solid #d6dcff;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.95)}
+
+  body.mobile-figma-compact #kanbanBoard{display:flex !important;overflow-x:auto;overflow-y:hidden;gap:.7rem !important;padding-bottom:.35rem;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+  body.mobile-figma-compact #kanbanBoard::-webkit-scrollbar{display:none}
+  body.mobile-figma-compact .kanban-col{min-width:248px;max-width:248px;padding:.72rem;border-radius:1.45rem;scroll-snap-align:start;background:#fcfcfe}
+  body.mobile-figma-compact .kanban-col-head{padding-bottom:.7rem;margin-bottom:.72rem;gap:.5rem}
+  body.mobile-figma-compact .kanban-col-title{font-size:.88rem}
+  body.mobile-figma-compact .kanban-col-count{min-width:1.85rem;height:1.85rem;font-size:.95rem;border-radius:.75rem}
+  body.mobile-figma-compact .kanban-align-pill{padding:.56rem .72rem;border-radius:.9rem;font-size:.82rem;box-shadow:0 6px 14px rgba(148,163,184,.14)}
+
+  body.mobile-figma-compact .kanban-list{gap:.55rem}
+  body.mobile-figma-compact .kanban-item{border-radius:1.22rem}
+  body.mobile-figma-compact .kanban-row-shell{grid-template-columns:1fr;gap:.55rem;padding:.68rem;min-height:0}
+  body.mobile-figma-compact .kanban-card-left{grid-template-columns:60px 14px 30px 30px 30px;gap:.42rem}
+  body.mobile-figma-compact .kanban-thumb-shell{width:60px;height:60px;border-radius:.92rem}
+  body.mobile-figma-compact .kanban-order-rail{width:14px;min-height:46px;font-size:1.3rem;border-radius:999px}
+  body.mobile-figma-compact .kanban-mini-icon,
+  body.mobile-figma-compact .kanban-mini-spacer{width:30px;height:30px;font-size:.86rem}
+  body.mobile-figma-compact .kanban-card-right{gap:.26rem}
+  body.mobile-figma-compact .kanban-chip-row{gap:.3rem}
+  body.mobile-figma-compact .kanban-type-chip,
+  body.mobile-figma-compact .kanban-sub-chip{padding:.22rem .48rem;font-size:.64rem}
+  body.mobile-figma-compact .kanban-item-title{font-size:.84rem;line-height:1.08}
+  body.mobile-figma-compact .kanban-item-sub{font-size:.68rem;line-height:1.2}
+  body.mobile-figma-compact .kanban-item::before, body.mobile-figma-compact .kanban-item::after{left:.55rem;right:.55rem}
+  body.mobile-figma-compact .kanban-row-shell{touch-action:pan-y}
+  body.mobile-figma-compact .kanban-mini-icon, body.mobile-figma-compact .kanban-align-pill{touch-action:manipulation}
+
+  body.mobile-figma-compact #previewSection .relative.rounded-2xl{padding:.55rem;border-radius:1rem}
+  body.mobile-figma-compact #collageCanvas{max-height:54vh;border-radius:.85rem}
+}

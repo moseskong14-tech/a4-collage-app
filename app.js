@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   cacheEls();
   bindEvents();
   setupMobileUI();
+  syncViewportMode();
+  window.addEventListener('resize', syncViewportMode);
   initColumnsForLayout('3');
   refreshFilename();
   await initDB();
@@ -73,6 +75,12 @@ function setupMobileUI() {
     const el = document.getElementById(id);
     if (el) observer.observe(el);
   });
+}
+
+
+function syncViewportMode() {
+  const compact = window.innerWidth <= 768;
+  document.body.classList.toggle('mobile-figma-compact', compact);
 }
 
 function bindEvents() {
@@ -251,7 +259,7 @@ function renderKanban() {
       group: 'kanban',
       animation: 220,
       easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-      handle: '.kanban-handle',
+      handle: '.kanban-row-shell',
       draggable: '.kanban-item',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
@@ -261,9 +269,12 @@ function renderKanban() {
       swapThreshold: 0.2,
       invertSwap: true,
       invertedSwapThreshold: 0.45,
-      delayOnTouchOnly: true,
-      delay: 120,
-      touchStartThreshold: 4,
+      filter: '.toggle-gap-btn,.delete-btn,.edit-btn,.align-btn,.kanban-mini-icon,.kanban-align-pill',
+      preventOnFilter: false,
+      delayOnTouchOnly: false,
+      delay: 0,
+      touchStartThreshold: 2,
+      fallbackTolerance: 3,
       scroll: true,
       bubbleScroll: true,
       emptyInsertThreshold: 18,
