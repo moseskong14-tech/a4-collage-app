@@ -223,7 +223,10 @@ function renderKanban() {
       card.dataset.id = item.id;
       card.innerHTML = `
         <div class="kanban-card-frame">
-          <div class="kanban-drag-surface" title="按住卡片主體拖曳排序">
+          <button class="kanban-drag-handle" type="button" title="按住拖曳手柄可排序">
+            <i class="fa-solid fa-grip-lines"></i>
+          </button>
+          <div class="kanban-drag-content">
             <div class="kanban-thumb-shell">
               <img class="kanban-thumb" src="${reg.previewData || reg.thumb || reg.originalData}" alt="thumb" loading="lazy" decoding="async">
             </div>
@@ -233,7 +236,7 @@ function renderKanban() {
                 <span class="kanban-sub-chip">高清預覽</span>
               </div>
               <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : '圖片項目'}</div>
-              <div class="kanban-item-sub">按住左側預覽或文字區即可拖移</div>
+              <div class="kanban-item-sub">左右滑看板；按住左側拖曳手柄排序</div>
             </div>
           </div>
           <div class="kanban-card-actions">
@@ -255,28 +258,29 @@ function renderKanban() {
       animation: isMobileBoard ? 0 : 90,
       easing: isMobileBoard ? 'linear' : 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       draggable: '.kanban-item',
-      handle: '.kanban-drag-surface',
+      handle: '.kanban-drag-handle',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
       forceFallback: true,
-      fallbackOnBody: !isMobileBoard,
+      fallbackOnBody: true,
       fallbackTolerance: 0,
       swapThreshold: isMobileBoard ? 0.34 : 0.44,
-      invertSwap: true,
-      invertedSwapThreshold: isMobileBoard ? 0.48 : 0.62,
+      invertSwap: false,
+      invertedSwapThreshold: isMobileBoard ? 0.68 : 0.76,
       delayOnTouchOnly: false,
       delay: 0,
       touchStartThreshold: 1,
       scroll: true,
       bubbleScroll: true,
-      scrollSensitivity: isMobileBoard ? 60 : 110,
-      scrollSpeed: isMobileBoard ? 12 : 18,
+      scrollSensitivity: isMobileBoard ? 80 : 120,
+      scrollSpeed: isMobileBoard ? 16 : 20,
       emptyInsertThreshold: isMobileBoard ? 20 : 28,
       filter: '.kanban-card-actions button,.align-btn,button,input,textarea,select,label,a',
       preventOnFilter: false,
       setData: dataTransfer => dataTransfer.setData('text/plain', ''),
       onFilter: evt => evt.preventDefault(),
+      removeCloneOnHide: true,
       onChoose: evt => handleSortChoose(evt),
       onUnchoose: () => clearDropIndicators(),
       onStart: evt => handleSortStart(evt),
@@ -409,7 +413,7 @@ function drawBackgroundAndFrame(ctx, s) {
   ctx.fillStyle = s.globalBgColor;
   ctx.fillRect(0,0,A4_WIDTH,A4_HEIGHT);
   let margin = 90;
-  const floral = ['watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea'];
+  const floral = ['watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners'];
   if (floral.includes(s.frameStyle)) {
     margin = 170;
     drawProceduralFrame(ctx, s.frameStyle, s.patternColor);
@@ -471,6 +475,18 @@ function drawProceduralFrame(ctx, style, color) {
       drawDaisy(ctx, 120 + (i%3)*60, 120 + i*260, 34);
       drawDaisy(ctx, A4_WIDTH-120 - (i%3)*45, 180 + i*240, 34);
     }
+  } else if (style === 'vintage-lace') {
+    drawLaceFrame(ctx, color);
+  } else if (style === 'geometric-arch') {
+    drawGeometricArchFrame(ctx, color);
+  } else if (style === 'starry-night') {
+    drawStarryFrame(ctx, color);
+  } else if (style === 'confetti-corners') {
+    drawConfettiCorners(ctx, color);
+  } else if (style === 'bamboo-zen') {
+    drawBambooFrame(ctx, color);
+  } else if (style === 'ribbon-corners') {
+    drawRibbonCorners(ctx, color);
   } else {
     for (let i = 0; i < 12; i++) {
       drawFlowerDot(ctx, 120 + (i%4)*45, 120 + i*260, 40, '#f9a8d4', color);
@@ -503,6 +519,88 @@ function drawFlowerDot(ctx, x, y, r, fill, center) {
 function drawCluster(ctx, x, y, spread, color) { for(let i=0;i<26;i++) drawFlowerDot(ctx, x + Math.cos(i)*spread*.35 + (i%5)*10, y + Math.sin(i*1.3)*spread*.35, 22, color, '#ffffff'); }
 function drawRose(ctx, x, y, size, color) { ctx.save(); ctx.translate(x,y); ctx.strokeStyle=color; ctx.lineWidth=7; for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(0,0,size-(i*10),i*.6,Math.PI*2-i*.4); ctx.stroke(); } ctx.restore(); }
 function drawDaisy(ctx, x, y, r) { ctx.save(); ctx.translate(x,y); for(let i=0;i<14;i++){ ctx.rotate((Math.PI*2)/14); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(0,-r,8,22,0,0,Math.PI*2); ctx.fill(); } ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.arc(0,0,11,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+
+function drawLaceFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.globalAlpha = .8;
+  roundRect(ctx, 84, 84, A4_WIDTH-168, A4_HEIGHT-168, 46); ctx.stroke();
+  for (let x = 130; x <= A4_WIDTH-130; x += 86) {
+    drawScallop(ctx, x, 106, 18, false, color);
+    drawScallop(ctx, x, A4_HEIGHT-106, 18, true, color);
+  }
+  for (let y = 154; y <= A4_HEIGHT-154; y += 86) {
+    drawScallop(ctx, 106, y, 18, true, color, true);
+    drawScallop(ctx, A4_WIDTH-106, y, 18, false, color, true);
+  }
+  ctx.restore();
+}
+function drawScallop(ctx, x, y, r, invert, color, vertical=false) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (vertical) ctx.arc(x, y, r, invert ? Math.PI/2 : -Math.PI/2, invert ? Math.PI*1.5 : Math.PI/2, invert);
+  else ctx.arc(x, y, r, invert ? 0 : Math.PI, invert ? Math.PI : 0, invert);
+  ctx.stroke(); ctx.restore();
+}
+function drawGeometricArchFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 7;
+  roundRect(ctx, 86, 86, A4_WIDTH-172, A4_HEIGHT-172, 54); ctx.stroke();
+  ctx.lineWidth = 3; ctx.globalAlpha = .65;
+  for (let i=0;i<4;i++) {
+    const inset = 132 + i*34;
+    roundRect(ctx, inset, 126, A4_WIDTH-inset*2, A4_HEIGHT-252, 120); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawStarryFrame(ctx, color) {
+  ctx.save();
+  for (let i=0;i<120;i++) {
+    const edge = i % 4;
+    const base = 90 + (i*173 % (edge < 2 ? A4_WIDTH-180 : A4_HEIGHT-180));
+    const x = edge === 0 ? base : edge === 1 ? base : (edge === 2 ? 92 : A4_WIDTH-92);
+    const y = edge === 0 ? 92 : edge === 1 ? A4_HEIGHT-92 : base;
+    drawStar(ctx, x, y, 8 + (i%3)*4, color, 0.55 + (i%4)*0.08);
+  }
+  ctx.restore();
+}
+function drawStar(ctx, x, y, r, color, alpha=1) {
+  ctx.save(); ctx.translate(x,y); ctx.fillStyle = color; ctx.globalAlpha = alpha; ctx.beginPath();
+  for (let i=0;i<10;i++) { const a = -Math.PI/2 + i*Math.PI/5; const rr = i%2===0 ? r : r*.42; const px = Math.cos(a)*rr; const py = Math.sin(a)*rr; i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function drawConfettiCorners(ctx, color) {
+  const corners = [[110,110],[A4_WIDTH-110,110],[110,A4_HEIGHT-110],[A4_WIDTH-110,A4_HEIGHT-110]];
+  corners.forEach(([cx,cy], cornerIdx) => {
+    for (let i=0;i<44;i++) {
+      const angle = (Math.PI/2) * (i/44) + (cornerIdx===1||cornerIdx===3?Math.PI/2:0) + (cornerIdx>=2?Math.PI:0);
+      const dist = 26 + (i%6)*18;
+      const x = cx + Math.cos(angle) * dist;
+      const y = cy + Math.sin(angle) * dist;
+      ctx.save(); ctx.translate(x,y); ctx.rotate(angle); ctx.fillStyle = i%3===0 ? color : (i%3===1 ? '#fb7185' : '#38bdf8'); ctx.globalAlpha = .72;
+      ctx.fillRect(-8,-3,16,6); ctx.restore();
+    }
+  });
+}
+function drawBambooFrame(ctx, color) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.globalAlpha = .85;
+  [98, A4_WIDTH-98].forEach(x => {
+    ctx.beginPath(); ctx.moveTo(x, 120); ctx.lineTo(x, A4_HEIGHT-120); ctx.stroke();
+    for (let y = 180; y < A4_HEIGHT-160; y += 210) {
+      ctx.lineWidth = 11; ctx.beginPath(); ctx.moveTo(x-8, y); ctx.lineTo(x+8, y); ctx.stroke(); ctx.lineWidth = 8;
+      drawLeafVine(ctx, x, y+12, x < A4_WIDTH/2 ? 120 : -120, 86, color);
+    }
+  });
+  ctx.restore();
+}
+function drawRibbonCorners(ctx, color) {
+  [[110,110,1,1],[A4_WIDTH-110,110,-1,1],[110,A4_HEIGHT-110,1,-1],[A4_WIDTH-110,A4_HEIGHT-110,-1,-1]].forEach(([x,y,sx,sy]) => {
+    ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy); ctx.fillStyle = color; ctx.globalAlpha = .82;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(92,0); ctx.lineTo(58,36); ctx.lineTo(92,72); ctx.lineTo(0,72); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(0,12,76,10);
+    ctx.restore();
+  });
+}
+
 function drawCornerFlourish(ctx, color) { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 3; [[100,100],[A4_WIDTH-100,100],[100,A4_HEIGHT-100],[A4_WIDTH-100,A4_HEIGHT-100]].forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,40,0,Math.PI*2);ctx.stroke();}); ctx.restore(); }
 
 function createBlocks(items) {
