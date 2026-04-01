@@ -558,3 +558,31 @@ body.kanban-drag-active .kanban-drag-handle {
   #previewSection .preview-stage{margin-left:-.1rem;margin-right:-.1rem;}
   #previewSection .preview-canvas{width:calc(100vw - 1rem) !important;max-width:calc(100vw - 1rem) !important;border-radius:.8rem !important;}
 }
+
+
+/* v13 vertical drag + horizontal column gap controls */
+#kanbanBoard{overflow-x:auto !important;overflow-y:hidden !important;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#kanbanBoard::-webkit-scrollbar{display:none}
+.kanban-col{scroll-snap-align:start}
+.kanban-card-frame{grid-template-columns:minmax(0,1fr) auto !important;align-items:stretch;gap:.5rem !important;}
+.kanban-drag-handle{display:none !important;}
+.kanban-drag-content{cursor:grab;user-select:none;-webkit-user-select:none;min-height:92px;border:1px solid #e2e8f0;border-radius:1rem;padding:.42rem .48rem;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:inset 0 1px 0 rgba(255,255,255,.92);touch-action:none !important;}
+.kanban-drag-content:active, body.kanban-drag-active .kanban-drag-content{cursor:grabbing;}
+.kanban-card-actions{align-self:center}
+.kanban-item{touch-action:pan-x pinch-zoom !important;}
+.kanban-item.sortable-chosen,.kanban-item.is-lifted{transform:none !important;}
+.sortable-fallback,.kanban-item.sortable-drag{box-shadow:0 10px 24px rgba(15,23,42,.16),0 4px 12px rgba(99,102,241,.10)!important;opacity:.98!important;}
+.sortable-ghost{opacity:.22!important;}
+@media (max-width:1023px){
+  .kanban-col{flex:0 0 196px !important;min-width:196px !important;max-width:196px !important;}
+  .kanban-card-frame{gap:.42rem !important;}
+  .kanban-drag-content{min-height:82px;padding:.34rem .36rem;border-radius:.88rem;}
+  .kanban-thumb-shell{width:44px !important;height:44px !important;}
+  .kanban-item-title{font-size:.73rem !important;line-height:1rem !important;}
+  .kanban-item-sub{font-size:.62rem !important;line-height:.9rem !important;}
+}
+@media (max-width:640px){
+  .kanban-col{flex-basis:182px !important;min-width:182px !important;max-width:182px !important;}
+  .kanban-drag-content{min-height:76px;padding:.28rem .3rem !important;}
+  .kanban-thumb-shell{width:40px !important;height:40px !important;}
+}

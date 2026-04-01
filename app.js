@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function cacheEls() {
   [
-    'imageInput','openTextCardBtn','resetBtn','layoutMode','defaultGap','gapValue','frameStyle','globalBgColor','innerBgColor','patternColor',
+    'imageInput','openTextCardBtn','resetBtn','layoutMode','defaultGap','gapValue','columnGap','columnGapValue','frameStyle','globalBgColor','innerBgColor','patternColor',
     'whiteBorderToggle','whiteBorderText','kanbanBoard','saveDot','saveText','filenameInput','downloadBtn','loading','collageCanvas',
     'textCardModal','textCardPreview','textCardContent','textCardTextColor','textCardBgColor','textCardFontSize','textCardAlignH','textCardAlignV','addTextCardBtn',
     'imageTextModal','imageTextPreview','imageTextContent','imageTextColor','imageTextSize','imageTextAlign','applyImageTextBtn',
@@ -84,6 +84,7 @@ function bindEvents() {
     stateChanged();
   });
   els.defaultGap.addEventListener('input', () => { els.gapValue.textContent = els.defaultGap.value; throttledDrawCanvas(); triggerAutoSave(); });
+  els.columnGap.addEventListener('input', () => { els.columnGapValue.textContent = els.columnGap.value; throttledDrawCanvas(); triggerAutoSave(); });
   ['frameStyle','globalBgColor','innerBgColor','patternColor'].forEach(id => els[id].addEventListener('input', stateChanged));
   els.whiteBorderToggle.addEventListener('click', () => {
     const on = els.whiteBorderToggle.classList.contains('toggle-on');
@@ -236,7 +237,7 @@ function renderKanban() {
                 <span class="kanban-sub-chip">高清預覽</span>
               </div>
               <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : '圖片項目'}</div>
-              <div class="kanban-item-sub">左右滑看板；按住左側拖曳手柄排序</div>
+              <div class="kanban-item-sub">左右滑看板；按住縮圖與文字區上下拖移</div>
             </div>
           </div>
           <div class="kanban-card-actions">
@@ -258,7 +259,7 @@ function renderKanban() {
       animation: isMobileBoard ? 0 : 90,
       easing: isMobileBoard ? 'linear' : 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       draggable: '.kanban-item',
-      handle: '.kanban-drag-handle',
+      handle: '.kanban-drag-content',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
@@ -401,6 +402,7 @@ function getSettings() {
   return {
     layoutMode: els.layoutMode.value,
     defaultGap: Number(els.defaultGap.value),
+    columnGap: Number(els.columnGap?.value || 18),
     frameStyle: els.frameStyle.value,
     globalBgColor: els.globalBgColor.value,
     innerBgColor: els.innerBgColor.value,
@@ -778,7 +780,7 @@ function measureBlock(block, colWidth, gap) {
 
 function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const colCount = columnsState.length;
-  const colGap = 18;
+  const colGap = Number(settings.columnGap ?? 18);
   const colWidth = (safeW - colGap * (colCount - 1)) / colCount;
   const blockData = columnsState.map(col => {
     const blocks = createBlocks(col.items).map(b => measureBlock(b, colWidth, settings.defaultGap));
@@ -810,7 +812,7 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
 }
 
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
-  const topGap = 18;
+  const topGap = Number(settings.columnGap ?? 18);
   const colWidth = (safeW - topGap) / 2;
   const topHeights = [0,1].map(i => columnsState[i]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + colWidth * (img.height/img.width) + (idx < columnsState[i].items.length - 1 ? settings.defaultGap : 0);},0) || 0);
   const bottomWidth = safeW * .68;
@@ -1165,6 +1167,8 @@ async function loadWorkspace() {
     initColumnsForLayout(els.layoutMode.value);
     els.defaultGap.value = workspace.settings?.defaultGap ?? 12;
     els.gapValue.textContent = els.defaultGap.value;
+    els.columnGap.value = workspace.settings?.columnGap ?? 18;
+    els.columnGapValue.textContent = els.columnGap.value;
     els.frameStyle.value = workspace.settings?.frameStyle || 'editorial-luxe';
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
     els.innerBgColor.value = workspace.settings?.innerBgColor || '#ffffff';
@@ -1200,7 +1204,7 @@ async function clearAll() {
     currentFilename = defaultFilename();
     els.layoutMode.value = '3';
     initColumnsForLayout('3');
-    els.defaultGap.value = 12; els.gapValue.textContent = '12';
+    els.defaultGap.value = 12; els.gapValue.textContent = '12'; els.columnGap.value = 18; els.columnGapValue.textContent = '18';
     els.frameStyle.value = 'editorial-luxe';
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';
