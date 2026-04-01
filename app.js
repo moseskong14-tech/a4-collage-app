@@ -19,6 +19,13 @@ let activeImageEditId = null;
 let previewBaseImage = null;
 let previewImageBitmap = null;
 
+const SHARED_BG_PALETTE = [
+  '#ffffff', '#f8fafc', '#f1f5f9', '#ecfeff', '#e0f2fe', '#dbeafe', '#eff6ff',
+  '#f5f3ff', '#ede9fe', '#fdf4ff', '#fce7f3', '#ffe4e6', '#fff1f2', '#fff7ed',
+  '#ffedd5', '#fef3c7', '#fefce8', '#f7fee7', '#ecfccb', '#f0fdf4', '#ecfdf5',
+  '#111827', '#1f2937', '#334155'
+];
+
 const textState = {
   text: '', color: '#ffffff', fontSizeRatio: 7, wrapWidth: 680,
   x: 500, y: 700, alignH: 'center', actualWidth: 0, actualHeight: 0
@@ -29,10 +36,13 @@ const els = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
   cacheEls();
+  buildSharedBgPalettes();
   bindEvents();
   setupMobileUI();
   initColumnsForLayout('3');
   refreshFilename();
+  updateSwatchSelection('globalBgColor', els.globalBgColor.value);
+  updateSwatchSelection('innerBgColor', els.innerBgColor.value);
   syncSpacingControls();
   await initDB();
   await loadWorkspace();
@@ -88,7 +98,8 @@ function bindEvents() {
     els.defaultGap.addEventListener(evtName, syncSpacingControls);
     els.columnGap.addEventListener(evtName, syncSpacingControls);
   });
-  ['frameStyle','globalBgColor','innerBgColor','patternColor'].forEach(id => els[id].addEventListener('input', stateChanged));
+  ['frameStyle','patternColor'].forEach(id => els[id].addEventListener('input', stateChanged));
+  ['globalBgColor','innerBgColor'].forEach(id => els[id].addEventListener('input', () => { updateSwatchSelection(id, els[id].value); stateChanged(); }));
   els.whiteBorderToggle.addEventListener('click', () => {
     const on = els.whiteBorderToggle.classList.contains('toggle-on');
     setWhiteBorder(!on);
@@ -106,6 +117,7 @@ function bindEvents() {
   document.querySelectorAll('.swatch').forEach(btn => btn.addEventListener('click', () => {
     const target = document.getElementById(btn.dataset.target);
     target.value = btn.dataset.color;
+    updateSwatchSelection(btn.dataset.target, btn.dataset.color);
     stateChanged();
   }));
   ['imageTextContent','imageTextColor','imageTextSize','imageTextAlign'].forEach(id => els[id].addEventListener('input', syncImageTextControls));
@@ -114,14 +126,52 @@ function bindEvents() {
   bindImageTextCanvas();
 }
 
+function buildSharedBgPalettes() {
+  [['globalBgPalette','globalBgColor'], ['innerBgPalette','innerBgColor']].forEach(([wrapId, targetId]) => {
+    const wrap = document.getElementById(wrapId);
+    const input = document.getElementById(targetId);
+    if (!wrap || !input) return;
+    wrap.querySelectorAll('.swatch').forEach(el => el.remove());
+    SHARED_BG_PALETTE.forEach(color => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'swatch';
+      btn.dataset.target = targetId;
+      btn.dataset.color = color;
+      btn.style.background = color;
+      btn.setAttribute('aria-label', `${targetId}-${color}`);
+      wrap.appendChild(btn);
+    });
+  });
+}
+
+function updateSwatchSelection(targetId, value) {
+  document.querySelectorAll(`.swatch[data-target="${targetId}"]`).forEach(btn => {
+    const active = btn.dataset.color.toLowerCase() === String(value).toLowerCase();
+    btn.classList.toggle('ring-2', active);
+    btn.classList.toggle('ring-slate-300', active);
+    btn.classList.toggle('scale-110', active);
+  });
+}
+
+function getEffectiveRowGap(raw) {
+  const gap = Math.max(0, Number(raw || 0));
+  return gap === 0 ? 0 : Math.round(gap * 1.18 + 2);
+}
+
+function getEffectiveColumnGap(raw) {
+  const gap = Math.max(0, Number(raw || 0));
+  return gap === 0 ? 0 : Math.round(gap * 1.2 + 4);
+}
+
 function stateChanged() {
   throttledDrawCanvas();
   triggerAutoSave();
 }
 
 function syncSpacingControls() {
-  const rowGap = Math.max(0, Number(els.defaultGap.value || 0));
-  const colGap = Math.max(0, Number(els.columnGap.value || 0));
+  const rowGap = getEffectiveRowGap(els.defaultGap.value);
+  const colGap = getEffectiveColumnGap(els.columnGap.value);
   els.gapValue.textContent = `${rowGap} px`;
   els.columnGapValue.textContent = `${colGap} px`;
   renderKanban();
@@ -213,8 +263,8 @@ function renderKanban() {
   els.kanbanBoard.innerHTML = '';
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
   els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-4`;
-  els.kanbanBoard.style.setProperty('--kanban-col-gap', `${Math.max(8, Math.round(getColumnGapValue() * 0.7))}px`);
-  els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(Number(els.defaultGap.value || 12) * 0.45))}px`);
+  els.kanbanBoard.style.setProperty('--kanban-col-gap', `${Math.max(8, Math.round(getEffectiveColumnGap(getColumnGapValue()) * 0.58))}px`);
+  els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(getEffectiveRowGap(els.defaultGap.value) * 0.5))}px`);
 
   columnsState.forEach((col, colIndex) => {
     const wrap = document.createElement('div');
@@ -418,8 +468,8 @@ function drawCanvas() {
 function getSettings() {
   return {
     layoutMode: els.layoutMode.value,
-    defaultGap: Number(els.defaultGap.value),
-    columnGap: getColumnGapValue(),
+    defaultGap: getEffectiveRowGap(els.defaultGap.value),
+    columnGap: getEffectiveColumnGap(getColumnGapValue()),
     frameStyle: els.frameStyle.value,
     globalBgColor: els.globalBgColor.value,
     innerBgColor: els.innerBgColor.value,
@@ -1199,6 +1249,8 @@ async function loadWorkspace() {
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
     els.innerBgColor.value = workspace.settings?.innerBgColor || '#ffffff';
     els.patternColor.value = workspace.settings?.patternColor || '#c9a227';
+    updateSwatchSelection('globalBgColor', els.globalBgColor.value);
+    updateSwatchSelection('innerBgColor', els.innerBgColor.value);
     setWhiteBorder(Boolean(workspace.settings?.whiteBorderEnabled));
     currentFilename = workspace.settings?.filename || defaultFilename();
     isCustomFilename = Boolean(workspace.settings?.isCustomFilename);
@@ -1235,6 +1287,8 @@ async function clearAll() {
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';
     els.patternColor.value = '#c9a227';
+    updateSwatchSelection('globalBgColor', els.globalBgColor.value);
+    updateSwatchSelection('innerBgColor', els.innerBgColor.value);
     setWhiteBorder(false);
     els.textCardContent.value = '';
     els.textCardTextColor.value = '#0f172a';

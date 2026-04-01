@@ -10,8 +10,11 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
 .field-label{display:block;font-size:.82rem;font-weight:700;color:#475569;margin-bottom:.35rem}
 .field-input{width:100%;border:1px solid #cbd5e1;border-radius:.9rem;padding:.7rem .9rem;background:#fff}
 .field-input:focus{outline:none;border-color:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.18)}
-.swatch,.color-picker{width:2rem;height:2rem;border-radius:9999px;border:1px solid #cbd5e1;flex:0 0 auto}
+.swatch,.color-picker{width:2rem;height:2rem;border-radius:9999px;border:1px solid #cbd5e1;flex:0 0 auto;transition:transform .16s ease, box-shadow .16s ease}
+.swatch:hover{transform:translateY(-1px)}
 .color-picker{padding:0;background:linear-gradient(135deg,#f472b6,#60a5fa,#34d399)}
+.shared-color-row{scrollbar-width:none}
+.shared-color-row::-webkit-scrollbar{display:none}
 .toggle-off,.toggle-on{height:2.75rem;width:100%;border-radius:999px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1px solid #cbd5e1;transition:.18s ease}
 .toggle-off{background:#f8fafc;color:#64748b}.toggle-on{background:#0f172a;color:#fff}
 .kanban-col{background:#f8fafc;border:1px solid #e2e8f0;border-radius:1.25rem;padding:1rem}
