@@ -222,25 +222,27 @@ function renderKanban() {
       card.className = `kanban-item ${item.noGapBelow ? 'nogap' : ''}`;
       card.dataset.id = item.id;
       card.innerHTML = `
-        <div class="kanban-row-shell">
-          <div class="kanban-card-left">
-            <div class="kanban-thumb-shell" title="拖曳排序">
+        <div class="kanban-card-frame">
+          <div class="kanban-drag-surface" title="按住卡片主體拖曳排序">
+            <div class="kanban-thumb-shell">
               <img class="kanban-thumb" src="${reg.previewData || reg.thumb || reg.originalData}" alt="thumb" loading="lazy" decoding="async">
             </div>
-            <div class="kanban-order-rail">${itemIndex + 1}</div>
+            <div class="kanban-card-main">
+              <div class="kanban-chip-row">
+                <span class="kanban-type-chip ${reg.type === 'textCard' ? 'is-text' : ''}">${reg.type === 'textCard' ? '文字卡' : '圖片'}</span>
+                <span class="kanban-sub-chip">高清預覽</span>
+              </div>
+              <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : '圖片項目'}</div>
+              <div class="kanban-item-sub">按住左側預覽或文字區即可拖移</div>
+            </div>
+          </div>
+          <div class="kanban-card-actions">
+            <div class="kanban-order-pill">${itemIndex + 1}</div>
             <button class="kanban-mini-icon ${item.noGapBelow ? 'is-active' : ''} toggle-gap-btn" data-id="${item.id}" title="${item.noGapBelow ? '已貼齊' : '無縫貼齊'}">
               <i class="fa-solid fa-link"></i>
             </button>
             ${reg.type === 'image' ? `<button class="kanban-mini-icon edit-btn" data-id="${item.id}" title="加字"><i class="fa-solid fa-pen-nib"></i></button>` : `<div class="kanban-mini-spacer"></div>`}
             <button class="kanban-mini-icon is-danger delete-btn" data-id="${item.id}" title="刪除"><i class="fa-solid fa-trash"></i></button>
-          </div>
-          <div class="kanban-card-right">
-            <div class="kanban-chip-row">
-              <span class="kanban-type-chip ${reg.type === 'textCard' ? 'is-text' : ''}">${reg.type === 'textCard' ? '文字卡' : '圖片'}</span>
-              <span class="kanban-sub-chip">高清預覽</span>
-            </div>
-            <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : '圖片項目'}</div>
-            <div class="kanban-item-sub">縮細顯示 · 保持高解像預覽</div>
           </div>
         </div>
       `;
@@ -252,22 +254,24 @@ function renderKanban() {
       animation: 160,
       easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       draggable: '.kanban-item',
+      handle: '.kanban-drag-surface',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
-      forceFallback: true,
-      fallbackOnBody: true,
-      fallbackTolerance: 3,
-      swapThreshold: 0.38,
+      forceFallback: false,
+      fallbackTolerance: 4,
+      swapThreshold: 0.44,
       invertSwap: true,
-      invertedSwapThreshold: 0.55,
-      delayOnTouchOnly: false,
-      delay: 0,
-      touchStartThreshold: 2,
+      invertedSwapThreshold: 0.62,
+      delayOnTouchOnly: true,
+      delay: 90,
+      touchStartThreshold: 4,
       scroll: true,
       bubbleScroll: true,
-      emptyInsertThreshold: 24,
-      filter: '.toggle-gap-btn,.edit-btn,.delete-btn,.align-btn,button,input,textarea,select,label,a',
+      scrollSensitivity: 70,
+      scrollSpeed: 12,
+      emptyInsertThreshold: 28,
+      filter: '.kanban-card-actions button,.align-btn,button,input,textarea,select,label,a',
       preventOnFilter: false,
       setData: dataTransfer => dataTransfer.setData('text/plain', ''),
       onFilter: evt => evt.preventDefault(),
@@ -292,12 +296,12 @@ function clearDropIndicators() {
 }
 
 function handleSortChoose(evt) {
-  document.body.classList.add('kanban-drag-active');
+  document.body.classList.add('kanban-drag-active','kanban-sort-lock');
   evt.item.classList.add('is-lifted');
 }
 
 function handleSortStart(evt) {
-  document.body.classList.add('kanban-drag-active');
+  document.body.classList.add('kanban-drag-active','kanban-sort-lock');
   evt.item.classList.add('is-lifted');
   const rect = evt.item.getBoundingClientRect();
   evt.item.style.width = `${Math.round(rect.width)}px`;
@@ -315,6 +319,7 @@ function handleSortMove(evt) {
 
 function handleSortEnd(evt) {
   clearDropIndicators();
+  document.body.classList.remove('kanban-sort-lock');
   evt.item?.classList.remove('is-lifted');
   evt.item?.style.removeProperty('width');
   const fromCol = Number(evt.from.dataset.col);
