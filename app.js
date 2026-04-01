@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupMobileUI();
   initColumnsForLayout('3');
   refreshFilename();
+  syncSpacingControls();
   await initDB();
   await loadWorkspace();
   renderKanban();
@@ -83,8 +84,10 @@ function bindEvents() {
     renderKanban();
     stateChanged();
   });
-  els.defaultGap.addEventListener('input', () => { els.gapValue.textContent = els.defaultGap.value; throttledDrawCanvas(); triggerAutoSave(); });
-  els.columnGap.addEventListener('input', () => { els.columnGapValue.textContent = els.columnGap.value; throttledDrawCanvas(); triggerAutoSave(); });
+  ['input','change'].forEach(evtName => {
+    els.defaultGap.addEventListener(evtName, syncSpacingControls);
+    els.columnGap.addEventListener(evtName, syncSpacingControls);
+  });
   ['frameStyle','globalBgColor','innerBgColor','patternColor'].forEach(id => els[id].addEventListener('input', stateChanged));
   els.whiteBorderToggle.addEventListener('click', () => {
     const on = els.whiteBorderToggle.classList.contains('toggle-on');
@@ -115,6 +118,17 @@ function stateChanged() {
   throttledDrawCanvas();
   triggerAutoSave();
 }
+
+function syncSpacingControls() {
+  const rowGap = Math.max(0, Number(els.defaultGap.value || 0));
+  const colGap = Math.max(0, Number(els.columnGap.value || 0));
+  els.gapValue.textContent = `${rowGap} px`;
+  els.columnGapValue.textContent = `${colGap} px`;
+  renderKanban();
+  throttledDrawCanvas();
+  triggerAutoSave();
+}
+
 
 function setWhiteBorder(on) {
   els.whiteBorderToggle.className = on ? 'toggle-on' : 'toggle-off';
@@ -199,7 +213,7 @@ function renderKanban() {
   els.kanbanBoard.innerHTML = '';
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
   els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-4`;
-  els.kanbanBoard.style.setProperty('--kanban-col-gap', `${Math.max(10, Math.round(getColumnGapValue() * 0.8))}px`);
+  els.kanbanBoard.style.setProperty('--kanban-col-gap', `${Math.max(8, Math.round(getColumnGapValue() * 0.7))}px`);
   els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(Number(els.defaultGap.value || 12) * 0.45))}px`);
 
   columnsState.forEach((col, colIndex) => {
@@ -416,7 +430,7 @@ function getSettings() {
 
 
 function getColumnGapValue() {
-  return Math.max(0, Number(els.columnGap?.value || 18));
+  return Math.max(0, Number(els.columnGap?.value || 24));
 }
 
 function drawBackgroundAndFrame(ctx, s) {
@@ -789,7 +803,7 @@ function measureBlock(block, colWidth, gap) {
 function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const colCount = Math.max(1, columnsState.length);
   const requestedColGap = Math.max(0, Number(settings.columnGap ?? 18));
-  const maxGap = colCount > 1 ? safeW * 0.18 : 0;
+  const maxGap = colCount > 1 ? safeW * 0.42 : 0;
   const colGap = Math.min(requestedColGap, maxGap);
   const colWidth = colCount > 1 ? (safeW - colGap * (colCount - 1)) / colCount : safeW;
   const contentWidth = colWidth * colCount + colGap * (colCount - 1);
@@ -824,11 +838,11 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
 }
 
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
-  const requestedTopGap = Math.max(0, Number(settings.columnGap ?? 18));
-  const topGap = Math.min(requestedTopGap, safeW * 0.18);
-  const colWidth = (safeW - topGap) / 2;
+  const requestedTopGap = Math.max(0, Number(settings.columnGap ?? 24));
+  const topGap = Math.min(requestedTopGap, safeW * 0.42);
+  const colWidth = Math.max(safeW * 0.24, (safeW - topGap) / 2);
   const topHeights = [0,1].map(i => columnsState[i]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + colWidth * (img.height/img.width) + (idx < columnsState[i].items.length - 1 ? settings.defaultGap : 0);},0) || 0);
-  const bottomWidth = Math.max(safeW * .58, safeW - topGap * 1.7);
+  const bottomWidth = Math.max(safeW * .42, Math.min(safeW, safeW - topGap * 1.05));
   const bottomHeight = columnsState[2]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + bottomWidth * (img.height/img.width) + (idx < columnsState[2].items.length - 1 ? settings.defaultGap : 0);},0) || 0;
   const totalH = Math.max(...topHeights) + settings.defaultGap + bottomHeight;
   const scale = Math.min(1, safeH / Math.max(totalH, 1));
@@ -1179,9 +1193,8 @@ async function loadWorkspace() {
     els.layoutMode.value = workspace.settings?.layoutMode || '3';
     initColumnsForLayout(els.layoutMode.value);
     els.defaultGap.value = workspace.settings?.defaultGap ?? 12;
-    els.gapValue.textContent = els.defaultGap.value;
-    els.columnGap.value = workspace.settings?.columnGap ?? 18;
-    els.columnGapValue.textContent = els.columnGap.value;
+    els.columnGap.value = workspace.settings?.columnGap ?? 24;
+    syncSpacingControls();
     els.frameStyle.value = workspace.settings?.frameStyle || 'editorial-luxe';
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
     els.innerBgColor.value = workspace.settings?.innerBgColor || '#ffffff';
@@ -1217,7 +1230,7 @@ async function clearAll() {
     currentFilename = defaultFilename();
     els.layoutMode.value = '3';
     initColumnsForLayout('3');
-    els.defaultGap.value = 12; els.gapValue.textContent = '12'; els.columnGap.value = 18; els.columnGapValue.textContent = '18';
+    els.defaultGap.value = 12; els.columnGap.value = 24; syncSpacingControls();
     els.frameStyle.value = 'editorial-luxe';
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';

@@ -594,3 +594,7 @@ body.kanban-drag-active .kanban-drag-handle {
   #kanbanBoard{gap:var(--kanban-col-gap) !important;padding-inline:.15rem !important}
 }
 .kanban-list{gap:var(--kanban-row-gap, .7rem)}
+
+
+.field-label span.text-slate-400{font-variant-numeric:tabular-nums}
+input[type="range"]{accent-color:#2563eb}
