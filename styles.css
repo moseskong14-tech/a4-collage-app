@@ -542,3 +542,19 @@ body.kanban-drag-active .kanban-drag-handle {
     border-radius: .68rem !important;
   }
 }
+
+
+/* v12 preview stage full-width + refined mobile A4 scaling */
+#previewSection{overflow:visible}
+#previewSection .preview-stage{padding:.5rem !important;min-height:auto !important;background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);}
+#previewSection .preview-canvas{display:block;width:100% !important;height:auto !important;max-width:100% !important;max-height:none !important;aspect-ratio:2480/3508;border-radius:1.2rem !important;box-shadow:0 24px 56px rgba(15,23,42,.14),0 8px 22px rgba(148,163,184,.18) !important;}
+@media (max-width: 1023px){
+  #previewSection .preview-stage{padding:0 !important;border:none !important;background:transparent !important;}
+  #previewSection .preview-canvas{width:100% !important;border-radius:.95rem !important;box-shadow:0 14px 34px rgba(15,23,42,.12),0 5px 14px rgba(148,163,184,.16) !important;}
+}
+@media (max-width: 640px){
+  #previewSection{padding:.5rem !important;}
+  #previewSection .flex.gap-3.flex-col.sm\:flex-row{gap:.55rem !important;}
+  #previewSection .preview-stage{margin-left:-.1rem;margin-right:-.1rem;}
+  #previewSection .preview-canvas{width:calc(100vw - 1rem) !important;max-width:calc(100vw - 1rem) !important;border-radius:.8rem !important;}
+}

@@ -55,7 +55,11 @@
               <div class="sm:col-span-2">
                 <label class="field-label">A4 藝術邊框</label>
                 <select id="frameStyle" class="field-input">
-                  <option value="watercolor-floral" selected>浪漫水彩花卉</option>
+                  <option value="editorial-luxe" selected>典藏金線畫廊框</option>
+                  <option value="botanical-atelier">高級植物工作室框</option>
+                  <option value="artdeco-ornament">Art Deco 裝飾框</option>
+                  <option value="papercut-bloom">紙雕花影框</option>
+                  <option value="watercolor-floral">浪漫水彩花卉</option>
                   <option value="spring-daisy">春日小雛菊</option>
                   <option value="rose-garden">典雅紅玫瑰</option>
                   <option value="fresh-vine">清新綠葉藤蔓</option>
@@ -162,14 +166,14 @@
           <button id="downloadBtn" class="btn-primary justify-center"><i class="fa-solid fa-download"></i><span>直接下載</span></button>
         </div>
 
-        <div class="relative rounded-2xl bg-slate-100 border border-slate-200 p-3 min-h-[70vh] flex items-center justify-center overflow-hidden">
+        <div class="preview-stage relative rounded-2xl bg-slate-100 border border-slate-200 p-3 min-h-[70vh] flex items-center justify-center overflow-hidden">
           <div id="loading" class="absolute inset-0 hidden bg-white/75 backdrop-blur-sm flex items-center justify-center z-10">
             <div class="text-center">
               <div class="loader mx-auto mb-3"></div>
               <div class="text-sm text-slate-500">載入中…</div>
             </div>
           </div>
-          <canvas id="collageCanvas" width="2480" height="3508" class="max-w-full max-h-[68vh] object-contain bg-white rounded-xl shadow"></canvas>
+          <canvas id="collageCanvas" width="2480" height="3508" class="preview-canvas object-contain bg-white rounded-xl shadow"></canvas>
         </div>
       </section>
     </div>

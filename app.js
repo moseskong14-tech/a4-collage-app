@@ -413,14 +413,15 @@ function drawBackgroundAndFrame(ctx, s) {
   ctx.fillStyle = s.globalBgColor;
   ctx.fillRect(0,0,A4_WIDTH,A4_HEIGHT);
   let margin = 90;
-  const floral = ['watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners'];
+  const floral = ['editorial-luxe','botanical-atelier','artdeco-ornament','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners'];
   if (floral.includes(s.frameStyle)) {
-    margin = 170;
+    margin = ['editorial-luxe','artdeco-ornament'].includes(s.frameStyle) ? 190 : 176;
     drawProceduralFrame(ctx, s.frameStyle, s.patternColor);
     ctx.save();
-    ctx.shadowColor = 'rgba(15,23,42,0.1)';
-    ctx.shadowBlur = 18;
-    roundRect(ctx, 170, 170, A4_WIDTH-340, A4_HEIGHT-340, 20);
+    ctx.shadowColor = 'rgba(15,23,42,0.12)';
+    ctx.shadowBlur = 22;
+    const inset = ['editorial-luxe','artdeco-ornament'].includes(s.frameStyle) ? 188 : 176;
+    roundRect(ctx, inset, inset, A4_WIDTH-inset*2, A4_HEIGHT-inset*2, 26);
     ctx.fillStyle = s.innerBgColor;
     ctx.fill();
     ctx.restore();
@@ -447,7 +448,15 @@ function drawBackgroundAndFrame(ctx, s) {
 
 function drawProceduralFrame(ctx, style, color) {
   const randoms = Array.from({length: 18}, (_,i) => i / 18);
-  if (style === 'fresh-vine') {
+  if (style === 'editorial-luxe') {
+    drawEditorialLuxeFrame(ctx, color);
+  } else if (style === 'botanical-atelier') {
+    drawBotanicalAtelierFrame(ctx, color);
+  } else if (style === 'artdeco-ornament') {
+    drawArtDecoOrnamentFrame(ctx, color);
+  } else if (style === 'papercut-bloom') {
+    drawPaperCutBloomFrame(ctx, color);
+  } else if (style === 'fresh-vine') {
     ctx.strokeStyle = color; ctx.lineWidth = 8;
     for (let i = 0; i < 6; i++) {
       const y = 130 + i * 520;
@@ -599,6 +608,145 @@ function drawRibbonCorners(ctx, color) {
     ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(0,12,76,10);
     ctx.restore();
   });
+}
+
+
+function drawEditorialLuxeFrame(ctx, color) {
+  ctx.save();
+  const c = hexToRgba(color, .92);
+  ctx.strokeStyle = c;
+  ctx.lineWidth = 4;
+  roundRect(ctx, 78, 78, A4_WIDTH-156, A4_HEIGHT-156, 56); ctx.stroke();
+  ctx.lineWidth = 1.5; ctx.globalAlpha = .82;
+  roundRect(ctx, 110, 110, A4_WIDTH-220, A4_HEIGHT-220, 42); ctx.stroke();
+  roundRect(ctx, 142, 142, A4_WIDTH-284, A4_HEIGHT-284, 28); ctx.stroke();
+  [[146,146,1,1],[A4_WIDTH-146,146,-1,1],[146,A4_HEIGHT-146,1,-1],[A4_WIDTH-146,A4_HEIGHT-146,-1,-1]].forEach(([x,y,sx,sy]) => {
+    drawEditorialCorner(ctx, x, y, sx, sy, color);
+  });
+  drawEditorialMidline(ctx, A4_WIDTH/2, 104, false, color);
+  drawEditorialMidline(ctx, A4_WIDTH/2, A4_HEIGHT-104, true, color);
+  drawEditorialSideDots(ctx, color);
+  ctx.restore();
+}
+function drawEditorialCorner(ctx, x, y, sx, sy, color) {
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(sx, sy);
+  ctx.strokeStyle = color; ctx.fillStyle = hexToRgba(color, .14);
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0,72); ctx.bezierCurveTo(0,24,24,0,72,0); ctx.stroke();
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(18,82); ctx.bezierCurveTo(18,36,36,18,82,18); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,14,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fillStyle = color; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(26,0); ctx.lineTo(54,0); ctx.moveTo(0,26); ctx.lineTo(0,54); ctx.stroke();
+  ctx.restore();
+}
+function drawEditorialMidline(ctx, x, y, invert, color) {
+  ctx.save(); ctx.translate(x, y); if (invert) ctx.rotate(Math.PI);
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.globalAlpha = .85;
+  ctx.beginPath(); ctx.moveTo(-160,0); ctx.lineTo(-44,0); ctx.moveTo(44,0); ctx.lineTo(160,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-28,0); ctx.bezierCurveTo(-18,-16,18,-16,28,0); ctx.bezierCurveTo(18,16,-18,16,-28,0); ctx.stroke();
+  ctx.restore();
+}
+function drawEditorialSideDots(ctx, color) {
+  ctx.save(); ctx.fillStyle = hexToRgba(color, .45);
+  for (let i = 0; i < 12; i++) {
+    const y = 230 + i * 255;
+    ctx.beginPath(); ctx.arc(104, y, i % 3 === 0 ? 4 : 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(A4_WIDTH-104, y, i % 3 === 0 ? 4 : 2.5, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawBotanicalAtelierFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = hexToRgba(color, .88); ctx.lineWidth = 2.5;
+  roundRect(ctx, 104, 104, A4_WIDTH-208, A4_HEIGHT-208, 40); ctx.stroke();
+  ctx.strokeStyle = hexToRgba(color, .38); ctx.lineWidth = 1.5;
+  roundRect(ctx, 134, 134, A4_WIDTH-268, A4_HEIGHT-268, 28); ctx.stroke();
+  [[160,160,1,1],[A4_WIDTH-160,160,-1,1],[160,A4_HEIGHT-160,1,-1],[A4_WIDTH-160,A4_HEIGHT-160,-1,-1]].forEach(([x,y,sx,sy], idx) => {
+    drawBotanicalCornerCluster(ctx, x, y, sx, sy, idx % 2 === 0 ? '#86efac' : '#bfdbfe', color);
+  });
+  ctx.restore();
+}
+function drawBotanicalCornerCluster(ctx, x, y, sx, sy, leafFill, lineColor) {
+  ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy);
+  for (let i = 0; i < 5; i++) {
+    const ox = 18 + i*22; const oy = 10 + i*20;
+    drawWaterLeaf(ctx, ox, oy, 34 - i*2, 16 - i, leafFill, lineColor, -0.45);
+    drawWaterLeaf(ctx, oy, ox, 30 - i*2, 14 - i, '#fde68a', lineColor, 0.62);
+  }
+  ctx.strokeStyle = hexToRgba(lineColor, .68); ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(8,118); ctx.bezierCurveTo(12,62,48,24,116,8); ctx.stroke();
+  ctx.restore();
+}
+function drawWaterLeaf(ctx, x, y, rx, ry, fill, stroke, rot) {
+  ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+  ctx.fillStyle = fill; ctx.globalAlpha = .72;
+  ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = hexToRgba(stroke, .42); ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(-rx*0.7,0); ctx.quadraticCurveTo(0,-ry*0.3,rx*0.7,0); ctx.stroke();
+  ctx.restore();
+}
+function drawArtDecoOrnamentFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 4;
+  roundRect(ctx, 88, 88, A4_WIDTH-176, A4_HEIGHT-176, 30); ctx.stroke();
+  ctx.lineWidth = 2;
+  roundRect(ctx, 122, 122, A4_WIDTH-244, A4_HEIGHT-244, 18); ctx.stroke();
+  [[128,128,1,1],[A4_WIDTH-128,128,-1,1],[128,A4_HEIGHT-128,1,-1],[A4_WIDTH-128,A4_HEIGHT-128,-1,-1]].forEach(([x,y,sx,sy]) => drawDecoCorner(ctx, x, y, sx, sy, color));
+  drawDecoFan(ctx, A4_WIDTH/2, 116, color, false);
+  drawDecoFan(ctx, A4_WIDTH/2, A4_HEIGHT-116, color, true);
+  ctx.restore();
+}
+function drawDecoCorner(ctx, x, y, sx, sy, color) {
+  ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy);
+  ctx.strokeStyle = color;
+  [0,20,40,60].forEach((o, idx) => {
+    ctx.lineWidth = idx === 0 ? 4 : 2;
+    ctx.beginPath(); ctx.moveTo(0,84-o); ctx.lineTo(0,0); ctx.lineTo(84-o,0); ctx.stroke();
+  });
+  ctx.restore();
+}
+function drawDecoFan(ctx, x, y, color, invert) {
+  ctx.save(); ctx.translate(x,y); if (invert) ctx.rotate(Math.PI); ctx.strokeStyle = color; ctx.lineWidth = 2.2;
+  for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(i*30,36 + Math.abs(i)*5); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(-132,0); ctx.lineTo(-48,0); ctx.moveTo(48,0); ctx.lineTo(132,0); ctx.stroke();
+  ctx.restore();
+}
+function drawPaperCutBloomFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = hexToRgba(color, .35); ctx.lineWidth = 2;
+  roundRect(ctx, 108, 108, A4_WIDTH-216, A4_HEIGHT-216, 46); ctx.stroke();
+  [[150,150,1,1],[A4_WIDTH-150,150,-1,1],[150,A4_HEIGHT-150,1,-1],[A4_WIDTH-150,A4_HEIGHT-150,-1,-1]].forEach(([x,y,sx,sy], idx) => {
+    drawPaperCutCorner(ctx, x, y, sx, sy, idx % 2 ? '#f9a8d4' : '#93c5fd', color);
+  });
+  ctx.restore();
+}
+function drawPaperCutCorner(ctx, x, y, sx, sy, fill, line) {
+  ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy);
+  const layers = [
+    {r:96, alpha:.22, col:fill},
+    {r:76, alpha:.28, col:'#fde68a'},
+    {r:56, alpha:.34, col:fill},
+    {r:38, alpha:.42, col:'#ffffff'}
+  ];
+  layers.forEach(({r, alpha, col}) => {
+    ctx.fillStyle = col; ctx.globalAlpha = alpha;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(r*.1, -r*.35, r, 0); ctx.quadraticCurveTo(r*.35, r*.1, 0, 0); ctx.fill();
+      ctx.rotate(Math.PI/8);
+    }
+  });
+  ctx.globalAlpha = .9; ctx.strokeStyle = hexToRgba(line, .4); ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(0,104); ctx.quadraticCurveTo(0,32,104,0); ctx.stroke();
+  ctx.restore();
+}
+function hexToRgba(hex, alpha=1) {
+  const v = hex.replace('#','');
+  const n = v.length === 3 ? v.split('').map(ch => ch + ch).join('') : v;
+  const int = parseInt(n, 16);
+  const r = (int >> 16) & 255; const g = (int >> 8) & 255; const b = int & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function drawCornerFlourish(ctx, color) { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 3; [[100,100],[A4_WIDTH-100,100],[100,A4_HEIGHT-100],[A4_WIDTH-100,A4_HEIGHT-100]].forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,40,0,Math.PI*2);ctx.stroke();}); ctx.restore(); }
@@ -1017,7 +1165,7 @@ async function loadWorkspace() {
     initColumnsForLayout(els.layoutMode.value);
     els.defaultGap.value = workspace.settings?.defaultGap ?? 12;
     els.gapValue.textContent = els.defaultGap.value;
-    els.frameStyle.value = workspace.settings?.frameStyle || 'watercolor-floral';
+    els.frameStyle.value = workspace.settings?.frameStyle || 'editorial-luxe';
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
     els.innerBgColor.value = workspace.settings?.innerBgColor || '#ffffff';
     els.patternColor.value = workspace.settings?.patternColor || '#c9a227';
@@ -1053,7 +1201,7 @@ async function clearAll() {
     els.layoutMode.value = '3';
     initColumnsForLayout('3');
     els.defaultGap.value = 12; els.gapValue.textContent = '12';
-    els.frameStyle.value = 'watercolor-floral';
+    els.frameStyle.value = 'editorial-luxe';
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';
     els.patternColor.value = '#c9a227';
