@@ -151,9 +151,9 @@ async function handleImageUpload(e) {
     for (const file of files) {
       const id = `img_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
       const originalData = await fileToDataURL(file);
-      const thumb = await createThumb(originalData, 360);
+      const previewData = await createPreview(originalData, 520, 0.94);
       const img = await loadImage(originalData);
-      imageRegistry[id] = { img, thumb, originalData, type: 'image' };
+      imageRegistry[id] = { img, previewData, originalData, type: 'image' };
       const targetCol = columnsState.reduce((a,b) => a.items.length <= b.items.length ? a : b);
       targetCol.items.push({ id, noGapBelow: false });
     }
@@ -181,14 +181,17 @@ function loadImage(src) {
     img.src = src;
   });
 }
-async function createThumb(src, maxSize) {
+async function createPreview(src, maxSize = 520, quality = 0.94) {
   const img = await loadImage(src);
   const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(img.width * scale));
   canvas.height = Math.max(1, Math.round(img.height * scale));
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.82);
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', quality);
 }
 
 function renderKanban() {
@@ -200,12 +203,12 @@ function renderKanban() {
     const wrap = document.createElement('div');
     wrap.className = 'kanban-col';
     wrap.innerHTML = `
-      <div class="flex items-center justify-between mb-3 gap-2">
-        <div>
-          <div class="font-bold">${col.name}</div>
-          <div class="text-xs text-slate-500">${col.items.length} 張</div>
+      <div class="kanban-col-head">
+        <div class="kanban-col-title-row">
+          <div class="kanban-col-title">${col.name}</div>
+          <div class="kanban-col-count">${col.items.length}</div>
         </div>
-        <button class="btn-secondary !py-2 !px-3 !rounded-xl text-sm align-btn" data-col="${colIndex}">${alignLabel(col.align)}</button>
+        <button class="kanban-align-pill align-btn" data-col="${colIndex}">${alignLabel(col.align)}</button>
       </div>
       <div class="kanban-list" data-col="${colIndex}"></div>
     `;
@@ -220,23 +223,24 @@ function renderKanban() {
       card.dataset.id = item.id;
       card.innerHTML = `
         <div class="kanban-row-shell">
-          <div class="relative kanban-handle kanban-preview-wrap">
-            <img class="kanban-thumb" src="${reg.thumb}" alt="thumb">
-            <div class="order-badge">#${itemIndex + 1}</div>
-            ${reg.type === 'textCard' ? '<div class="thumb-badge">文字卡</div>' : '<div class="thumb-badge thumb-badge-dark">圖片</div>'}
+          <div class="kanban-card-left">
+            <div class="kanban-thumb-shell kanban-handle">
+              <img class="kanban-thumb" src="${reg.previewData || reg.thumb || reg.originalData}" alt="thumb" loading="lazy" decoding="async">
+            </div>
+            <div class="kanban-order-rail">${itemIndex + 1}</div>
+            <button class="kanban-mini-icon ${item.noGapBelow ? 'is-active' : ''} toggle-gap-btn" data-id="${item.id}" title="${item.noGapBelow ? '已貼齊' : '無縫貼齊'}">
+              <i class="fa-solid fa-link"></i>
+            </button>
+            ${reg.type === 'image' ? `<button class="kanban-mini-icon edit-btn" data-id="${item.id}" title="加字"><i class="fa-solid fa-pen-nib"></i></button>` : `<div class="kanban-mini-spacer"></div>`}
+            <button class="kanban-mini-icon is-danger delete-btn" data-id="${item.id}" title="刪除"><i class="fa-solid fa-trash"></i></button>
           </div>
-          <div class="kanban-side-panel">
-            <div class="kanban-item-meta">
-              <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : '圖片項目'}</div>
-              <div class="kanban-item-sub">拖曳排序 / 跨欄移動</div>
+          <div class="kanban-card-right">
+            <div class="kanban-chip-row">
+              <span class="kanban-type-chip ${reg.type === 'textCard' ? 'is-text' : ''}">${reg.type === 'textCard' ? '文字卡' : '圖片'}</span>
+              <span class="kanban-sub-chip">高清預覽</span>
             </div>
-            <div class="kanban-actions-grid">
-              ${reg.type === 'image' ? `<button class="btn-secondary !py-2 !px-3 !rounded-xl text-sm flex-1 edit-btn" data-id="${item.id}"><i class="fa-solid fa-pen"></i><span>加字</span></button>` : `<div class="kanban-placeholder-pill">已自適應尺寸</div>`}
-              <button class="btn-danger !py-2 !px-3 !rounded-xl text-sm flex-1 delete-btn" data-id="${item.id}"><i class="fa-solid fa-trash"></i><span>刪除</span></button>
-              <button class="${item.noGapBelow ? 'btn-primary' : 'btn-secondary'} !py-2 !px-3 !rounded-xl text-sm w-full toggle-gap-btn kanban-span-2" data-id="${item.id}">
-                <i class="fa-solid fa-link"></i><span>${item.noGapBelow ? '已貼齊' : '無縫貼齊'}</span>
-              </button>
-            </div>
+            <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : '圖片項目'}</div>
+            <div class="kanban-item-sub">縮細顯示 · 保持高解像預覽</div>
           </div>
         </div>
       `;
@@ -607,9 +611,9 @@ async function addTextCardToBoard() {
   drawTextCardPreview();
   const id = `txt_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
   const originalData = els.textCardPreview.toDataURL('image/png');
-  const thumb = await createThumb(originalData, 360);
+  const previewData = await createPreview(originalData, 520, 0.96);
   const img = await loadImage(originalData);
-  imageRegistry[id] = { img, thumb, originalData, type: 'textCard' };
+  imageRegistry[id] = { img, previewData, originalData, type: 'textCard' };
   const targetCol = columnsState.reduce((a,b) => a.items.length <= b.items.length ? a : b);
   targetCol.items.push({ id, noGapBelow: false });
   closeModal(els.textCardModal);
@@ -744,7 +748,7 @@ async function applyImageText() {
   drawMultiLineTextOnCanvas(ctx, textState.text || ' ', textState.x * (bake.width / els.imageTextPreview.width), textState.y * (bake.height / els.imageTextPreview.height), textState.wrapWidth * (bake.width / els.imageTextPreview.width), fontSize*1.35, textState.alignH, 'center');
   const originalData = bake.toDataURL('image/jpeg', 0.95);
   imageRegistry[activeImageEditId].originalData = originalData;
-  imageRegistry[activeImageEditId].thumb = await createThumb(originalData, 360);
+  imageRegistry[activeImageEditId].previewData = await createPreview(originalData, 520, 0.94);
   imageRegistry[activeImageEditId].img = await loadImage(originalData);
   closeModal(els.imageTextModal);
   renderKanban();
@@ -806,7 +810,7 @@ function triggerAutoSave() {
 function buildWorkspacePayload() {
   const images = {};
   Object.entries(imageRegistry).forEach(([id, item]) => {
-    images[id] = { thumb: item.thumb, originalData: item.originalData, type: item.type };
+    images[id] = { previewData: item.previewData || item.thumb || item.originalData, originalData: item.originalData, type: item.type };
   });
   return {
     version: 2,
@@ -855,7 +859,7 @@ async function loadWorkspace() {
     imageRegistry = {};
     const entries = Object.entries(workspace.images || {});
     await Promise.all(entries.map(async ([id, item]) => {
-      imageRegistry[id] = { ...item, img: await loadImage(item.originalData) };
+      imageRegistry[id] = { ...item, previewData: item.previewData || item.thumb || item.originalData, img: await loadImage(item.originalData) };
     }));
     drawTextCardPreview();
     updateSaveStatus('saved');
