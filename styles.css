@@ -125,3 +125,21 @@ html{scroll-behavior:smooth}
   .kanban-thumb-shell{width:76px;height:76px;border-radius:1.15rem}
   .kanban-order-rail{min-height:54px;font-size:1.7rem}
 }
+
+/* v5 drag & drop figma engine */
+.kanban-list{position:relative;transition:background-color .18s ease, box-shadow .18s ease,border-color .18s ease;border-radius:1.25rem}
+.kanban-list.is-drop-target{background:linear-gradient(180deg,rgba(238,242,255,.72),rgba(248,250,252,.9));box-shadow:inset 0 0 0 2px rgba(99,102,241,.18)}
+.kanban-handle{cursor:grab;touch-action:none}
+.kanban-handle:active{cursor:grabbing}
+.kanban-item{position:relative;will-change:transform}
+.kanban-item::before{content:'';position:absolute;left:.8rem;right:.8rem;top:-.42rem;height:3px;border-radius:999px;background:linear-gradient(90deg,#6366f1,#818cf8);opacity:0;transform:scaleX(.45);transform-origin:center;transition:opacity .14s ease,transform .14s ease;pointer-events:none}
+.kanban-item::after{content:'';position:absolute;left:.8rem;right:.8rem;bottom:-.42rem;height:3px;border-radius:999px;background:linear-gradient(90deg,#6366f1,#818cf8);opacity:0;transform:scaleX(.45);transform-origin:center;transition:opacity .14s ease,transform .14s ease;pointer-events:none}
+.kanban-item.drop-before::before,.kanban-item.drop-after::after{opacity:1;transform:scaleX(1)}
+.kanban-item.sortable-chosen,.kanban-item.is-lifted{transform:scale(1.015);border-color:#c7d2fe;box-shadow:0 20px 50px rgba(99,102,241,.18), 0 10px 28px rgba(148,163,184,.18), inset 0 1px 0 rgba(255,255,255,.96)}
+.sortable-fallback.kanban-item,.kanban-item.sortable-drag{transform:rotate(.4deg) scale(1.02);box-shadow:0 24px 64px rgba(15,23,42,.22),0 10px 34px rgba(99,102,241,.18);opacity:.98;cursor:grabbing}
+.kanban-item.sortable-ghost{opacity:.2 !important;background:linear-gradient(180deg,#f8fbff,#eef2ff);border-style:dashed;border-color:#c7d2fe;box-shadow:none}
+body.kanban-drag-active .kanban-col{box-shadow:0 16px 40px rgba(148,163,184,.16), inset 0 1px 0 rgba(255,255,255,.92)}
+body.kanban-drag-active .kanban-item:not(.sortable-chosen):not(.sortable-drag){transition:transform .18s ease, box-shadow .18s ease}
+@media (prefers-reduced-motion: reduce){
+  .kanban-item,.kanban-list,.kanban-item::before,.kanban-item::after{transition:none !important}
+}

@@ -224,7 +224,7 @@ function renderKanban() {
       card.innerHTML = `
         <div class="kanban-row-shell">
           <div class="kanban-card-left">
-            <div class="kanban-thumb-shell kanban-handle">
+            <div class="kanban-thumb-shell kanban-handle" title="按住拖曳排序">
               <img class="kanban-thumb" src="${reg.previewData || reg.thumb || reg.originalData}" alt="thumb" loading="lazy" decoding="async">
             </div>
             <div class="kanban-order-rail">${itemIndex + 1}</div>
@@ -249,8 +249,28 @@ function renderKanban() {
 
     new Sortable(list, {
       group: 'kanban',
-      animation: 150,
+      animation: 220,
+      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       handle: '.kanban-handle',
+      draggable: '.kanban-item',
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      forceFallback: true,
+      fallbackOnBody: true,
+      swapThreshold: 0.2,
+      invertSwap: true,
+      invertedSwapThreshold: 0.45,
+      delayOnTouchOnly: true,
+      delay: 120,
+      touchStartThreshold: 4,
+      scroll: true,
+      bubbleScroll: true,
+      emptyInsertThreshold: 18,
+      onChoose: evt => handleSortChoose(evt),
+      onUnchoose: () => clearDropIndicators(),
+      onStart: evt => handleSortStart(evt),
+      onMove: evt => handleSortMove(evt),
       onEnd: evt => handleSortEnd(evt)
     });
   });
@@ -261,10 +281,49 @@ function renderKanban() {
   document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => openImageTextEditor(btn.dataset.id)));
 }
 
+function clearDropIndicators() {
+  document.body.classList.remove('kanban-drag-active');
+  document.querySelectorAll('.kanban-list').forEach(list => list.classList.remove('is-drop-target'));
+  document.querySelectorAll('.kanban-item').forEach(item => item.classList.remove('drop-before','drop-after'));
+}
+
+function handleSortChoose(evt) {
+  document.body.classList.add('kanban-drag-active');
+  evt.item.classList.add('is-lifted');
+}
+
+function handleSortStart(evt) {
+  document.body.classList.add('kanban-drag-active');
+  evt.item.classList.add('is-lifted');
+  const rect = evt.item.getBoundingClientRect();
+  evt.item.style.width = `${Math.round(rect.width)}px`;
+}
+
+function handleSortMove(evt) {
+  clearDropIndicators();
+  document.body.classList.add('kanban-drag-active');
+  if (evt.to) evt.to.classList.add('is-drop-target');
+  const related = evt.related;
+  if (related && related.classList?.contains('kanban-item')) {
+    related.classList.add(evt.willInsertAfter ? 'drop-after' : 'drop-before');
+  }
+}
+
 function handleSortEnd(evt) {
+  clearDropIndicators();
+  evt.item?.classList.remove('is-lifted');
+  evt.item?.style.removeProperty('width');
   const fromCol = Number(evt.from.dataset.col);
   const toCol = Number(evt.to.dataset.col);
+  if (Number.isNaN(fromCol) || Number.isNaN(toCol) || evt.oldIndex == null || evt.newIndex == null) {
+    renderKanban();
+    return;
+  }
   const [moved] = columnsState[fromCol].items.splice(evt.oldIndex, 1);
+  if (!moved) {
+    renderKanban();
+    return;
+  }
   columnsState[toCol].items.splice(evt.newIndex, 0, moved);
   renderKanban();
   stateChanged();
