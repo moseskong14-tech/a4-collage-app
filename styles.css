@@ -586,3 +586,11 @@ body.kanban-drag-active .kanban-drag-handle {
   .kanban-drag-content{min-height:76px;padding:.28rem .3rem !important;}
   .kanban-thumb-shell{width:40px !important;height:40px !important;}
 }
+
+/* v14 gap fix overrides */
+:root{--kanban-col-gap:14px}
+#kanbanBoard{gap:var(--kanban-col-gap) !important}
+@media (max-width:1023px){
+  #kanbanBoard{gap:var(--kanban-col-gap) !important;padding-inline:.15rem !important}
+}
+.kanban-list{gap:var(--kanban-row-gap, .7rem)}

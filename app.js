@@ -199,6 +199,8 @@ function renderKanban() {
   els.kanbanBoard.innerHTML = '';
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
   els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-4`;
+  els.kanbanBoard.style.setProperty('--kanban-col-gap', `${Math.max(10, Math.round(getColumnGapValue() * 0.8))}px`);
+  els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(Number(els.defaultGap.value || 12) * 0.45))}px`);
 
   columnsState.forEach((col, colIndex) => {
     const wrap = document.createElement('div');
@@ -268,6 +270,7 @@ function renderKanban() {
       fallbackTolerance: 0,
       swapThreshold: isMobileBoard ? 0.34 : 0.44,
       invertSwap: false,
+      direction: 'vertical',
       invertedSwapThreshold: isMobileBoard ? 0.68 : 0.76,
       delayOnTouchOnly: false,
       delay: 0,
@@ -402,13 +405,18 @@ function getSettings() {
   return {
     layoutMode: els.layoutMode.value,
     defaultGap: Number(els.defaultGap.value),
-    columnGap: Number(els.columnGap?.value || 18),
+    columnGap: getColumnGapValue(),
     frameStyle: els.frameStyle.value,
     globalBgColor: els.globalBgColor.value,
     innerBgColor: els.innerBgColor.value,
     patternColor: els.patternColor.value,
     whiteBorderEnabled: getWhiteBorderEnabled()
   };
+}
+
+
+function getColumnGapValue() {
+  return Math.max(0, Number(els.columnGap?.value || 18));
 }
 
 function drawBackgroundAndFrame(ctx, s) {
@@ -779,9 +787,13 @@ function measureBlock(block, colWidth, gap) {
 }
 
 function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
-  const colCount = columnsState.length;
-  const colGap = Number(settings.columnGap ?? 18);
-  const colWidth = (safeW - colGap * (colCount - 1)) / colCount;
+  const colCount = Math.max(1, columnsState.length);
+  const requestedColGap = Math.max(0, Number(settings.columnGap ?? 18));
+  const maxGap = colCount > 1 ? safeW * 0.18 : 0;
+  const colGap = Math.min(requestedColGap, maxGap);
+  const colWidth = colCount > 1 ? (safeW - colGap * (colCount - 1)) / colCount : safeW;
+  const contentWidth = colWidth * colCount + colGap * (colCount - 1);
+  const startX = safeX + (safeW - contentWidth) / 2;
   const blockData = columnsState.map(col => {
     const blocks = createBlocks(col.items).map(b => measureBlock(b, colWidth, settings.defaultGap));
     const virtualHeight = blocks.reduce((sum,b,i) => sum + b.totalHeight + (i < blocks.length - 1 ? settings.defaultGap : 0), 0);
@@ -791,7 +803,7 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const scale = Math.min(1, safeH / maxH);
 
   columnsState.forEach((col, cidx) => {
-    const x = safeX + cidx * (colWidth + colGap);
+    const x = startX + cidx * (colWidth + colGap);
     const colH = blockData[cidx].virtualHeight * scale;
     let y = safeY;
     if (col.align === 'center') y = safeY + (safeH - colH) / 2;
@@ -812,10 +824,11 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
 }
 
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
-  const topGap = Number(settings.columnGap ?? 18);
+  const requestedTopGap = Math.max(0, Number(settings.columnGap ?? 18));
+  const topGap = Math.min(requestedTopGap, safeW * 0.18);
   const colWidth = (safeW - topGap) / 2;
   const topHeights = [0,1].map(i => columnsState[i]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + colWidth * (img.height/img.width) + (idx < columnsState[i].items.length - 1 ? settings.defaultGap : 0);},0) || 0);
-  const bottomWidth = safeW * .68;
+  const bottomWidth = Math.max(safeW * .58, safeW - topGap * 1.7);
   const bottomHeight = columnsState[2]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + bottomWidth * (img.height/img.width) + (idx < columnsState[2].items.length - 1 ? settings.defaultGap : 0);},0) || 0;
   const totalH = Math.max(...topHeights) + settings.defaultGap + bottomHeight;
   const scale = Math.min(1, safeH / Math.max(totalH, 1));
