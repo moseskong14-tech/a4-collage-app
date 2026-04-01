@@ -31,8 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   cacheEls();
   bindEvents();
   setupMobileUI();
-  syncViewportMode();
-  window.addEventListener('resize', syncViewportMode);
   initColumnsForLayout('3');
   refreshFilename();
   await initDB();
@@ -75,12 +73,6 @@ function setupMobileUI() {
     const el = document.getElementById(id);
     if (el) observer.observe(el);
   });
-}
-
-
-function syncViewportMode() {
-  const compact = window.innerWidth <= 768;
-  document.body.classList.toggle('mobile-figma-compact', compact);
 }
 
 function bindEvents() {
@@ -205,7 +197,7 @@ async function createPreview(src, maxSize = 520, quality = 0.94) {
 function renderKanban() {
   els.kanbanBoard.innerHTML = '';
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
-  els.kanbanBoard.className = `grid grid-cols-1 md:grid-cols-2 ${colClass} gap-4`;
+  els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-4`;
 
   columnsState.forEach((col, colIndex) => {
     const wrap = document.createElement('div');
@@ -232,7 +224,7 @@ function renderKanban() {
       card.innerHTML = `
         <div class="kanban-row-shell">
           <div class="kanban-card-left">
-            <div class="kanban-thumb-shell kanban-handle" title="按住拖曳排序">
+            <div class="kanban-thumb-shell" title="拖曳排序">
               <img class="kanban-thumb" src="${reg.previewData || reg.thumb || reg.originalData}" alt="thumb" loading="lazy" decoding="async">
             </div>
             <div class="kanban-order-rail">${itemIndex + 1}</div>
@@ -257,27 +249,28 @@ function renderKanban() {
 
     new Sortable(list, {
       group: 'kanban',
-      animation: 220,
+      animation: 160,
       easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-      handle: '.kanban-row-shell',
       draggable: '.kanban-item',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
       forceFallback: true,
       fallbackOnBody: true,
-      swapThreshold: 0.2,
+      fallbackTolerance: 3,
+      swapThreshold: 0.38,
       invertSwap: true,
-      invertedSwapThreshold: 0.45,
-      filter: '.toggle-gap-btn,.delete-btn,.edit-btn,.align-btn,.kanban-mini-icon,.kanban-align-pill',
-      preventOnFilter: false,
+      invertedSwapThreshold: 0.55,
       delayOnTouchOnly: false,
       delay: 0,
       touchStartThreshold: 2,
-      fallbackTolerance: 3,
       scroll: true,
       bubbleScroll: true,
-      emptyInsertThreshold: 18,
+      emptyInsertThreshold: 24,
+      filter: '.toggle-gap-btn,.edit-btn,.delete-btn,.align-btn,button,input,textarea,select,label,a',
+      preventOnFilter: false,
+      setData: dataTransfer => dataTransfer.setData('text/plain', ''),
+      onFilter: evt => evt.preventDefault(),
       onChoose: evt => handleSortChoose(evt),
       onUnchoose: () => clearDropIndicators(),
       onStart: evt => handleSortStart(evt),
