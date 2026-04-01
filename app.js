@@ -251,25 +251,26 @@ function renderKanban() {
 
     new Sortable(list, {
       group: 'kanban',
-      animation: 160,
+      animation: 90,
       easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       draggable: '.kanban-item',
       handle: '.kanban-drag-surface',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
-      forceFallback: false,
-      fallbackTolerance: 4,
+      forceFallback: true,
+      fallbackOnBody: true,
+      fallbackTolerance: 0,
       swapThreshold: 0.44,
       invertSwap: true,
       invertedSwapThreshold: 0.62,
-      delayOnTouchOnly: true,
-      delay: 90,
-      touchStartThreshold: 4,
+      delayOnTouchOnly: false,
+      delay: 0,
+      touchStartThreshold: 1,
       scroll: true,
       bubbleScroll: true,
-      scrollSensitivity: 70,
-      scrollSpeed: 12,
+      scrollSensitivity: 110,
+      scrollSpeed: 18,
       emptyInsertThreshold: 28,
       filter: '.kanban-card-actions button,.align-btn,button,input,textarea,select,label,a',
       preventOnFilter: false,
@@ -297,11 +298,13 @@ function clearDropIndicators() {
 
 function handleSortChoose(evt) {
   document.body.classList.add('kanban-drag-active','kanban-sort-lock');
+  evt.item.style.willChange = 'transform';
   evt.item.classList.add('is-lifted');
 }
 
 function handleSortStart(evt) {
   document.body.classList.add('kanban-drag-active','kanban-sort-lock');
+  evt.item.style.willChange = 'transform';
   evt.item.classList.add('is-lifted');
   const rect = evt.item.getBoundingClientRect();
   evt.item.style.width = `${Math.round(rect.width)}px`;
@@ -322,6 +325,7 @@ function handleSortEnd(evt) {
   document.body.classList.remove('kanban-sort-lock');
   evt.item?.classList.remove('is-lifted');
   evt.item?.style.removeProperty('width');
+  evt.item?.style.removeProperty('will-change');
   const fromCol = Number(evt.from.dataset.col);
   const toCol = Number(evt.to.dataset.col);
   if (Number.isNaN(fromCol) || Number.isNaN(toCol) || evt.oldIndex == null || evt.newIndex == null) {

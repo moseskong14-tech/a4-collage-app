@@ -266,3 +266,57 @@ body.kanban-sort-lock .kanban-drag-surface{cursor:grabbing}
   .mobile-dock-btn{min-height:2.65rem !important;padding:.35rem .24rem !important;font-size:.66rem !important;border-radius:.74rem !important}
   #collageCanvas{max-height:38vh !important;border-radius:.6rem !important}
 }
+
+
+/* v9 mobile horizontal scroll + direct finger drag rebuild */
+#boardSection{overflow:visible !important}
+#kanbanBoard{touch-action:pan-x pinch-zoom;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#kanbanBoard::-webkit-scrollbar{display:none}
+.kanban-list{touch-action:pan-y pinch-zoom}
+.kanban-item{touch-action:auto !important;will-change:transform}
+.kanban-drag-surface{touch-action:auto !important;min-height:56px;cursor:grab}
+.kanban-drag-surface:active{cursor:grabbing}
+.sortable-ghost{opacity:.28 !important}
+.sortable-fallback,.sortable-drag{transition:none !important}
+body.kanban-sort-lock #kanbanBoard{overflow-x:auto !important;scroll-snap-type:none !important}
+body.kanban-sort-lock .kanban-col{scroll-snap-align:none !important}
+
+@media (max-width:1023px){
+  #kanbanBoard{display:flex !important;flex-wrap:nowrap !important;align-items:stretch !important;gap:.5rem !important;overflow-x:auto !important;overflow-y:hidden !important;padding:.04rem .04rem .32rem !important;scroll-snap-type:x proximity !important}
+  .kanban-col{flex:0 0 188px !important;min-width:188px !important;max-width:188px !important;padding:.5rem !important;border-radius:1rem !important}
+  .kanban-col-head{padding-bottom:.48rem !important;margin-bottom:.48rem !important}
+  .kanban-col-title{font-size:.74rem !important}
+  .kanban-col-count{min-width:1.34rem !important;height:1.34rem !important;font-size:.7rem !important}
+  .kanban-align-pill{padding:.34rem .44rem !important;border-radius:.72rem !important;font-size:.62rem !important}
+  .kanban-list{gap:.38rem !important;min-height:180px !important}
+  .kanban-item{border-radius:1rem !important}
+  .kanban-card-frame{gap:.34rem !important;padding:.4rem !important}
+  .kanban-drag-surface{grid-template-columns:42px minmax(0,1fr) !important;gap:.34rem !important;min-height:48px !important;border-radius:.74rem !important;padding:.08rem !important}
+  .kanban-thumb-shell{width:42px !important;height:42px !important;border-radius:.68rem !important}
+  .kanban-card-main{gap:.16rem !important}
+  .kanban-card-actions{gap:.24rem !important}
+  .kanban-order-pill{min-width:1rem !important;height:1.38rem !important;font-size:.62rem !important;border-radius:.56rem !important}
+  .kanban-mini-icon,.kanban-mini-spacer{width:20px !important;height:20px !important;font-size:.58rem !important}
+  .kanban-type-chip,.kanban-sub-chip{padding:.08rem .28rem !important;font-size:.46rem !important}
+  .kanban-item-title{font-size:.62rem !important;line-height:1.05 !important}
+  .kanban-item-sub{font-size:.5rem !important;line-height:1.08 !important}
+}
+
+@media (max-width:640px){
+  #kanbanBoard{gap:.42rem !important;padding-bottom:.28rem !important}
+  .kanban-col{flex:0 0 176px !important;min-width:176px !important;max-width:176px !important;padding:.46rem !important}
+  .kanban-col-head{gap:.26rem !important}
+  .kanban-col-title-row{gap:.24rem !important}
+  .kanban-col-title{font-size:.68rem !important}
+  .kanban-col-count{min-width:1.22rem !important;height:1.22rem !important;font-size:.64rem !important}
+  .kanban-align-pill{padding:.3rem .38rem !important;font-size:.58rem !important}
+  .kanban-list{min-height:168px !important}
+  .kanban-card-frame{padding:.34rem !important;gap:.28rem !important}
+  .kanban-drag-surface{grid-template-columns:38px minmax(0,1fr) !important;gap:.28rem !important;min-height:42px !important}
+  .kanban-thumb-shell{width:38px !important;height:38px !important;border-radius:.58rem !important}
+  .kanban-order-pill{min-width:.92rem !important;height:1.24rem !important;font-size:.56rem !important}
+  .kanban-mini-icon,.kanban-mini-spacer{width:18px !important;height:18px !important;font-size:.5rem !important}
+  .kanban-type-chip,.kanban-sub-chip{font-size:.42rem !important;padding:.06rem .22rem !important}
+  .kanban-item-title{font-size:.58rem !important}
+  .kanban-item-sub{font-size:.46rem !important}
+}
