@@ -1,0 +1,93 @@
+body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.btn-primary,.btn-warning,.btn-danger,.btn-secondary,.icon-btn{
+  display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1rem;border-radius:1rem;font-weight:700;transition:.18s ease;
+}
+.btn-primary{background:#0f172a;color:#fff}.btn-primary:hover{background:#1e293b}
+.btn-warning{background:#facc15;color:#1f2937}.btn-warning:hover{background:#eab308}
+.btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-secondary{background:#e2e8f0;color:#0f172a}.btn-secondary:hover{background:#cbd5e1}
+.icon-btn{background:#e2e8f0;color:#0f172a;padding:.65rem .85rem}.icon-btn:hover{background:#cbd5e1}
+.field-label{display:block;font-size:.82rem;font-weight:700;color:#475569;margin-bottom:.35rem}
+.field-input{width:100%;border:1px solid #cbd5e1;border-radius:.9rem;padding:.7rem .9rem;background:#fff}
+.field-input:focus{outline:none;border-color:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.18)}
+.swatch,.color-picker{width:2rem;height:2rem;border-radius:9999px;border:1px solid #cbd5e1;flex:0 0 auto}
+.color-picker{padding:0;background:linear-gradient(135deg,#f472b6,#60a5fa,#34d399)}
+.toggle-off,.toggle-on{height:2.75rem;width:100%;border-radius:999px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1px solid #cbd5e1;transition:.18s ease}
+.toggle-off{background:#f8fafc;color:#64748b}.toggle-on{background:#0f172a;color:#fff}
+.kanban-col{background:#f8fafc;border:1px solid #e2e8f0;border-radius:1.25rem;padding:1rem}
+.kanban-list{min-height:120px;display:flex;flex-direction:column;gap:.75rem}
+.kanban-item{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.kanban-item.nogap{border-bottom-left-radius:.25rem;border-bottom-right-radius:.25rem;margin-bottom:-.45rem}
+.kanban-thumb{width:100%;height:120px;object-fit:cover;background:#e2e8f0}
+.thumb-badge,.order-badge{position:absolute;top:.55rem;border-radius:999px;padding:.2rem .5rem;font-size:.72rem;font-weight:800}
+.thumb-badge{right:.55rem;background:#fb923c;color:#fff}.order-badge{left:.55rem;background:#0f172a;color:#fff}
+.kanban-handle{cursor:grab}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.9);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:50}
+.modal-panel{width:min(100%,1200px);max-height:95vh;overflow:auto;background:#fff;border-radius:1.5rem;padding:1.25rem}
+.loader{width:34px;height:34px;border:4px solid #cbd5e1;border-top-color:#0f172a;border-radius:999px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+
+.kanban-col{background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);border:1px solid #dbe4f0;border-radius:1.35rem;padding:1rem;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+.kanban-list{min-height:120px;display:flex;flex-direction:column;gap:.9rem}
+.kanban-item{background:#fff;border:1px solid #e2e8f0;border-radius:1.1rem;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.kanban-item.nogap{outline:2px solid rgba(15,23,42,.1)}
+.kanban-row-shell{display:grid;grid-template-columns:minmax(0,1fr) 188px;gap:.85rem;padding:.85rem;align-items:stretch}
+.kanban-preview-wrap{border-radius:1rem;overflow:hidden;min-height:156px;background:#e2e8f0;border:1px solid #e2e8f0}
+.kanban-thumb{width:100%;height:100%;min-height:156px;max-height:240px;object-fit:cover;background:#e2e8f0}
+.kanban-side-panel{display:flex;flex-direction:column;justify-content:space-between;gap:.75rem}
+.kanban-item-meta{padding:.2rem .1rem 0}.kanban-item-title{font-weight:800;color:#0f172a}.kanban-item-sub{font-size:.74rem;color:#64748b;margin-top:.15rem}
+.kanban-actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}.kanban-span-2{grid-column:1 / -1}
+.kanban-placeholder-pill{display:flex;align-items:center;justify-content:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:1rem;padding:.7rem .5rem;font-size:.78rem;font-weight:700;color:#64748b}
+.thumb-badge,.order-badge{position:absolute;top:.7rem;border-radius:999px;padding:.26rem .58rem;font-size:.72rem;font-weight:800;backdrop-filter:blur(8px)}
+.thumb-badge{right:.7rem;background:rgba(249,115,22,.92);color:#fff}.thumb-badge-dark{background:rgba(15,23,42,.88)}.order-badge{left:.7rem;background:rgba(255,255,255,.92);color:#0f172a}
+#textCardPreview{width:auto;max-width:100%;max-height:68vh;height:auto;display:block;box-shadow:0 10px 30px rgba(15,23,42,.12);border-radius:1rem}
+@media (max-width: 900px){
+  .kanban-row-shell{grid-template-columns:1fr}
+  .kanban-side-panel{gap:.6rem}
+  .kanban-actions-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width: 640px){
+  .btn-primary,.btn-warning,.btn-danger,.btn-secondary,.icon-btn{padding:.72rem .9rem;border-radius:.95rem}
+  .kanban-actions-grid{grid-template-columns:1fr}
+  .kanban-span-2{grid-column:auto}
+  .kanban-thumb{max-height:220px}
+  .modal{padding:.5rem}
+  .modal-panel{padding:1rem;border-radius:1rem}
+}
+
+html{scroll-behavior:smooth}
+.mobile-safe{padding-bottom:5.5rem}
+.mobile-top-nav{position:sticky;top:0;z-index:30;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-bottom:.9rem;padding:.55rem;border:1px solid #e2e8f0;border-radius:1rem;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.mobile-nav-btn{display:flex;align-items:center;justify-content:center;gap:.45rem;padding:.82rem .7rem;border-radius:.9rem;background:#f8fafc;color:#475569;font-weight:800;font-size:.88rem;border:1px solid transparent}
+.mobile-nav-btn.is-active{background:#0f172a;color:#fff;box-shadow:0 8px 20px rgba(15,23,42,.18)}
+.mobile-settings-stack{display:flex;flex-direction:column;gap:.85rem}
+.settings-group{border:1px solid #e2e8f0;border-radius:1rem;background:#f8fafc;overflow:hidden}
+.settings-group summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:1rem 1rem;font-weight:800;color:#0f172a;cursor:pointer}
+.settings-group summary::-webkit-details-marker{display:none}
+.settings-group summary span{display:flex;align-items:center;gap:.6rem}
+.settings-group summary i:last-child{transition:transform .18s ease;color:#64748b}
+.settings-group[open] summary i:last-child{transform:rotate(180deg)}
+.settings-group-body{padding:0 1rem 1rem}
+.mobile-bottom-dock{position:fixed;left:.75rem;right:.75rem;bottom:calc(.65rem + env(safe-area-inset-bottom));z-index:40;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem;padding:.7rem;border:1px solid #dbe4f0;border-radius:1.2rem;background:rgba(255,255,255,.95);backdrop-filter:blur(16px);box-shadow:0 18px 40px rgba(15,23,42,.14)}
+.mobile-dock-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.28rem;min-height:3.5rem;padding:.55rem .45rem;border-radius:1rem;background:#f8fafc;color:#0f172a;font-weight:800;border:1px solid #e2e8f0}
+.mobile-dock-btn-primary{background:#0f172a;color:#fff;border-color:#0f172a}
+#controlsSection,#boardSection,#previewSection{scroll-margin-top:4.8rem}
+#previewSection .relative.rounded-2xl{min-height:unset}
+@media (max-width: 1023px){
+  .max-w-7xl > .grid{display:flex;flex-direction:column;gap:1rem}
+  #controlsSection,#boardSection,#previewSection{padding:1rem;border-radius:1.25rem}
+  #controlsSection .flex.flex-wrap.items-start.justify-between.gap-3{position:sticky;top:4.4rem;z-index:20;background:#fff;padding-bottom:.75rem;border-bottom:1px solid #eef2f7}
+  #controlsSection .grid.grid-cols-2.lg\:grid-cols-4.gap-4{display:block}
+  #kanbanBoard{display:grid !important;grid-template-columns:1fr !important;gap:.9rem !important}
+  .kanban-col{padding:.85rem;border-radius:1.1rem}
+  .kanban-list{gap:.75rem}
+  .kanban-row-shell{grid-template-columns:1fr;gap:.7rem;padding:.72rem}
+  .kanban-preview-wrap{min-height:132px}
+  .kanban-thumb{min-height:132px;max-height:220px}
+  .kanban-side-panel{padding-top:.1rem}
+  .field-input{font-size:16px}
+}
+@media (min-width: 1024px){
+  .mobile-safe{padding-bottom:0}
+}
