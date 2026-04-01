@@ -320,3 +320,77 @@ body.kanban-sort-lock .kanban-col{scroll-snap-align:none !important}
   .kanban-item-title{font-size:.58rem !important}
   .kanban-item-sub{font-size:.46rem !important}
 }
+
+/* v10 mobile gesture mediation */
+#kanbanBoard,
+.kanban-col,
+.kanban-list,
+.kanban-item,
+.kanban-card-frame,
+.kanban-drag-surface,
+.kanban-card-main,
+.kanban-thumb-shell,
+.kanban-preview-wrap {
+  touch-action: pan-x !important;
+}
+
+.kanban-card-actions,
+.kanban-card-actions *,
+.align-btn,
+.align-btn *,
+.toggle-gap-btn,
+.edit-btn,
+.delete-btn,
+button,
+input,
+select,
+textarea,
+label,
+a {
+  touch-action: manipulation;
+}
+
+body.kanban-sort-lock #kanbanBoard {
+  overflow-x: auto !important;
+}
+
+body.kanban-actually-dragging .kanban-item,
+body.kanban-actually-dragging .kanban-card-frame,
+body.kanban-actually-dragging .kanban-drag-surface {
+  touch-action: none !important;
+}
+
+@media (max-width:1023px){
+  #boardSection,
+  #kanbanBoard,
+  .kanban-col,
+  .kanban-list,
+  .kanban-item,
+  .kanban-card-frame,
+  .kanban-drag-surface,
+  .kanban-card-main,
+  .kanban-thumb-shell,
+  .kanban-preview-wrap {
+    touch-action: pan-x !important;
+  }
+
+  .kanban-item {
+    overflow: visible;
+  }
+
+  .kanban-card-frame {
+    min-height: 66px;
+  }
+
+  .kanban-item.sortable-drag,
+  .sortable-fallback.kanban-item {
+    transform: none !important;
+    box-shadow: 0 10px 26px rgba(15,23,42,.16), 0 6px 16px rgba(99,102,241,.10) !important;
+  }
+
+  .kanban-item.sortable-chosen,
+  .kanban-item.is-lifted {
+    transform: none !important;
+    box-shadow: 0 10px 24px rgba(99,102,241,.12), 0 6px 18px rgba(148,163,184,.12) !important;
+  }
+}

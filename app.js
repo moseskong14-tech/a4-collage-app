@@ -249,29 +249,30 @@ function renderKanban() {
       list.appendChild(card);
     });
 
+    const isMobileBoard = window.matchMedia('(max-width: 1023px)').matches;
     new Sortable(list, {
       group: 'kanban',
-      animation: 90,
-      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+      animation: isMobileBoard ? 0 : 90,
+      easing: isMobileBoard ? 'linear' : 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       draggable: '.kanban-item',
       handle: '.kanban-drag-surface',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
       forceFallback: true,
-      fallbackOnBody: true,
+      fallbackOnBody: !isMobileBoard,
       fallbackTolerance: 0,
-      swapThreshold: 0.44,
+      swapThreshold: isMobileBoard ? 0.34 : 0.44,
       invertSwap: true,
-      invertedSwapThreshold: 0.62,
+      invertedSwapThreshold: isMobileBoard ? 0.48 : 0.62,
       delayOnTouchOnly: false,
       delay: 0,
       touchStartThreshold: 1,
       scroll: true,
       bubbleScroll: true,
-      scrollSensitivity: 110,
-      scrollSpeed: 18,
-      emptyInsertThreshold: 28,
+      scrollSensitivity: isMobileBoard ? 60 : 110,
+      scrollSpeed: isMobileBoard ? 12 : 18,
+      emptyInsertThreshold: isMobileBoard ? 20 : 28,
       filter: '.kanban-card-actions button,.align-btn,button,input,textarea,select,label,a',
       preventOnFilter: false,
       setData: dataTransfer => dataTransfer.setData('text/plain', ''),
@@ -297,13 +298,13 @@ function clearDropIndicators() {
 }
 
 function handleSortChoose(evt) {
-  document.body.classList.add('kanban-drag-active','kanban-sort-lock');
+  document.body.classList.add('kanban-drag-active','kanban-sort-lock','kanban-actually-dragging');
   evt.item.style.willChange = 'transform';
   evt.item.classList.add('is-lifted');
 }
 
 function handleSortStart(evt) {
-  document.body.classList.add('kanban-drag-active','kanban-sort-lock');
+  document.body.classList.add('kanban-drag-active','kanban-sort-lock','kanban-actually-dragging');
   evt.item.style.willChange = 'transform';
   evt.item.classList.add('is-lifted');
   const rect = evt.item.getBoundingClientRect();
@@ -322,7 +323,7 @@ function handleSortMove(evt) {
 
 function handleSortEnd(evt) {
   clearDropIndicators();
-  document.body.classList.remove('kanban-sort-lock');
+  document.body.classList.remove('kanban-sort-lock','kanban-actually-dragging');
   evt.item?.classList.remove('is-lifted');
   evt.item?.style.removeProperty('width');
   evt.item?.style.removeProperty('will-change');
