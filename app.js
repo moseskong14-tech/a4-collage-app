@@ -841,12 +841,19 @@ function createBlocks(items) {
 function measureBlock(block, colWidth, gap) {
   const metrics = [];
   let total = 0;
-  block.forEach((item, idx) => {
-    const img = imageRegistry[item.id]?.img; if (!img) return;
-    const h = colWidth * (img.height / img.width);
-    metrics.push({ id: item.id, height: h });
-    total += h + (idx < block.length - 1 ? 0 : 0);
+
+  block.forEach((item) => {
+    const img = imageRegistry[item.id]?.img;
+    if (!img) return;
+
+    const imgW = img.naturalWidth || img.width;
+    const imgH = img.naturalHeight || img.height;
+    const h = colWidth * (imgH / imgW);
+
+    metrics.push({ id: item.id, width: colWidth, height: h });
+    total += h;
   });
+
   return { metrics, totalHeight: total, bottomGap: gap };
 }
 
@@ -855,67 +862,154 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const requestedColGap = Math.max(0, Number(settings.columnGap ?? 18));
   const maxGap = colCount > 1 ? safeW * 0.42 : 0;
   const colGap = Math.min(requestedColGap, maxGap);
-  const colWidth = colCount > 1 ? (safeW - colGap * (colCount - 1)) / colCount : safeW;
-  const contentWidth = colWidth * colCount + colGap * (colCount - 1);
-  const startX = safeX + (safeW - contentWidth) / 2;
+
+  const baseColWidth = colCount > 1
+    ? (safeW - colGap * (colCount - 1)) / colCount
+    : safeW;
+
   const blockData = columnsState.map(col => {
-    const blocks = createBlocks(col.items).map(b => measureBlock(b, colWidth, settings.defaultGap));
-    const virtualHeight = blocks.reduce((sum,b,i) => sum + b.totalHeight + (i < blocks.length - 1 ? settings.defaultGap : 0), 0);
+    const blocks = createBlocks(col.items).map(b => measureBlock(b, baseColWidth, settings.defaultGap));
+    const virtualHeight = blocks.reduce((sum, b, i) => {
+      return sum + b.totalHeight + (i < blocks.length - 1 ? settings.defaultGap : 0);
+    }, 0);
     return { blocks, virtualHeight };
   });
-  const maxH = Math.max(1, ...blockData.map(b => b.virtualHeight));
-  const scale = Math.min(1, safeH / maxH);
+
+  const maxVirtualH = Math.max(1, ...blockData.map(b => b.virtualHeight));
+  const heightScale = Math.min(1, safeH / maxVirtualH);
+
+  // ✅ 關鍵：寬度、左右欄距都要一齊縮放
+  const drawColWidth = baseColWidth * heightScale;
+  const drawColGap = colGap * heightScale;
+
+  const contentWidth = drawColWidth * colCount + drawColGap * (colCount - 1);
+  const startX = safeX + (safeW - contentWidth) / 2;
 
   columnsState.forEach((col, cidx) => {
-    const x = startX + cidx * (colWidth + colGap);
-    const colH = blockData[cidx].virtualHeight * scale;
+    const x = startX + cidx * (drawColWidth + drawColGap);
+    const colH = blockData[cidx].virtualHeight * heightScale;
+
     let y = safeY;
     if (col.align === 'center') y = safeY + (safeH - colH) / 2;
     if (col.align === 'bottom') y = safeY + (safeH - colH);
-    createBlocks(col.items).forEach((block, bidx) => {
-      const metric = measureBlock(block, colWidth, settings.defaultGap);
-      const blockHeight = metric.totalHeight * scale;
-      if (settings.whiteBorderEnabled && block.length) drawBlockBg(ctx, x, y, colWidth, blockHeight, scale);
-      block.forEach((item, idx) => {
-        const img = imageRegistry[item.id]?.img; if (!img) return;
-        const h = colWidth * scale * (img.height / img.width);
-        drawImageRounded(ctx, img, x, y, colWidth, h, item.noGapBelow ? 8 : 18);
-        y += h;
+
+    createBlocks(col.items).forEach((block) => {
+      const metric = measureBlock(block, baseColWidth, settings.defaultGap);
+      const blockHeight = metric.totalHeight * heightScale;
+
+      if (settings.whiteBorderEnabled && block.length) {
+        drawBlockBg(ctx, x, y, drawColWidth, blockHeight, heightScale);
+      }
+
+      block.forEach((item) => {
+        const img = imageRegistry[item.id]?.img;
+        if (!img) return;
+
+        const imgW = img.naturalWidth || img.width;
+        const imgH = img.naturalHeight || img.height;
+
+        const drawW = drawColWidth;
+        const drawH = drawW * (imgH / imgW);
+
+        drawImageRounded(ctx, img, x, y, drawW, drawH, item.noGapBelow ? 8 : 18);
+        y += drawH;
       });
-      y += settings.defaultGap * scale;
+
+      y += settings.defaultGap * heightScale;
     });
   });
 }
 
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const requestedTopGap = Math.max(0, Number(settings.columnGap ?? 24));
-  const topGap = Math.min(requestedTopGap, safeW * 0.42);
-  const colWidth = Math.max(safeW * 0.24, (safeW - topGap) / 2);
-  const topHeights = [0,1].map(i => columnsState[i]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + colWidth * (img.height/img.width) + (idx < columnsState[i].items.length - 1 ? settings.defaultGap : 0);},0) || 0);
-  const bottomWidth = Math.max(safeW * .42, Math.min(safeW, safeW - topGap * 1.05));
-  const bottomHeight = columnsState[2]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + bottomWidth * (img.height/img.width) + (idx < columnsState[2].items.length - 1 ? settings.defaultGap : 0);},0) || 0;
-  const totalH = Math.max(...topHeights) + settings.defaultGap + bottomHeight;
-  const scale = Math.min(1, safeH / Math.max(totalH, 1));
-  const topY = safeY + (safeH - totalH*scale)/2;
+  const baseTopGap = Math.min(requestedTopGap, safeW * 0.42);
 
-  [0,1].forEach(i => {
+  const baseTopColWidth = Math.max(safeW * 0.24, (safeW - baseTopGap) / 2);
+  const baseBottomWidth = Math.max(safeW * 0.42, Math.min(safeW, safeW - baseTopGap * 1.05));
+
+  const topHeights = [0, 1].map(i => {
+    const col = columnsState[i];
+    if (!col) return 0;
+
+    return col.items.reduce((sum, item, idx) => {
+      const img = imageRegistry[item.id]?.img;
+      if (!img) return sum;
+
+      const imgW = img.naturalWidth || img.width;
+      const imgH = img.naturalHeight || img.height;
+      const h = baseTopColWidth * (imgH / imgW);
+
+      return sum + h + (idx < col.items.length - 1 ? settings.defaultGap : 0);
+    }, 0);
+  });
+
+  const bottomCol = columnsState[2];
+  const bottomHeight = bottomCol
+    ? bottomCol.items.reduce((sum, item, idx) => {
+        const img = imageRegistry[item.id]?.img;
+        if (!img) return sum;
+
+        const imgW = img.naturalWidth || img.width;
+        const imgH = img.naturalHeight || img.height;
+        const h = baseBottomWidth * (imgH / imgW);
+
+        return sum + h + (idx < bottomCol.items.length - 1 ? settings.defaultGap : 0);
+      }, 0)
+    : 0;
+
+  const totalH = Math.max(...topHeights, 0) + settings.defaultGap + bottomHeight;
+  const scale = Math.min(1, safeH / Math.max(totalH, 1));
+
+  // ✅ 關鍵：全部尺寸一齊縮
+  const topGap = baseTopGap * scale;
+  const topColWidth = baseTopColWidth * scale;
+  const bottomWidth = baseBottomWidth * scale;
+
+  const topContentWidth = topColWidth * 2 + topGap;
+  const topStartX = safeX + (safeW - topContentWidth) / 2;
+
+  const topY = safeY + (safeH - totalH * scale) / 2;
+
+  [0, 1].forEach(i => {
+    const col = columnsState[i];
+    if (!col) return;
+
     let y = topY;
-    const x = safeX + i * (colWidth + topGap);
-    columnsState[i].items.forEach(item => {
-      const img = imageRegistry[item.id]?.img; if(!img) return;
-      const h = colWidth * scale * (img.height / img.width);
-      drawImageRounded(ctx, img, x, y, colWidth, h, 18);
-      y += h + settings.defaultGap * scale;
+    const x = topStartX + i * (topColWidth + topGap);
+
+    col.items.forEach(item => {
+      const img = imageRegistry[item.id]?.img;
+      if (!img) return;
+
+      const imgW = img.naturalWidth || img.width;
+      const imgH = img.naturalHeight || img.height;
+
+      const drawW = topColWidth;
+      const drawH = drawW * (imgH / imgW);
+
+      drawImageRounded(ctx, img, x, y, drawW, drawH, 18);
+      y += drawH + settings.defaultGap * scale;
     });
   });
+
   const bottomX = safeX + (safeW - bottomWidth) / 2;
-  let bottomY = topY + Math.max(...topHeights) * scale + settings.defaultGap * scale;
-  columnsState[2].items.forEach(item => {
-    const img = imageRegistry[item.id]?.img; if(!img) return;
-    const h = bottomWidth * scale * (img.height / img.width);
-    drawImageRounded(ctx, img, bottomX, bottomY, bottomWidth, h, 18);
-    bottomY += h + settings.defaultGap * scale;
-  });
+  let bottomY = topY + Math.max(...topHeights, 0) * scale + settings.defaultGap * scale;
+
+  if (bottomCol) {
+    bottomCol.items.forEach(item => {
+      const img = imageRegistry[item.id]?.img;
+      if (!img) return;
+
+      const imgW = img.naturalWidth || img.width;
+      const imgH = img.naturalHeight || img.height;
+
+      const drawW = bottomWidth;
+      const drawH = drawW * (imgH / imgW);
+
+      drawImageRounded(ctx, img, bottomX, bottomY, drawW, drawH, 18);
+      bottomY += drawH + settings.defaultGap * scale;
+    });
+  }
 }
 
 function drawBlockBg(ctx, x, y, w, h, scale) {
