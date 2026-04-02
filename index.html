@@ -1,118 +1,96 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>A4 Collage Rebuild v1</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>A4 拼貼重建 v1.1</title>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar card">
+    <header class="topbar">
       <div>
-        <h1>A4 拼貼工具 · 重建 v1</h1>
-        <p class="muted">先求穩定可用：上傳、排序、間距、預覽、下載、自動儲存。</p>
+        <h1>A4 拼貼重建 v1.1</h1>
+        <p>自訂拖曳引擎版</p>
       </div>
-      <div class="status-row">
-        <span id="saveBadge" class="badge idle">尚未存檔</span>
-      </div>
+      <div class="save-status"><span id="saveDot" class="dot idle"></span><span id="saveText">尚未存檔</span></div>
     </header>
 
-    <section class="controls card" id="controlsSection">
-      <div class="toolbar-grid">
-        <label class="field file-field">
-          <span>加入圖片</span>
+    <main class="layout">
+      <section class="panel controls" id="controlsSection">
+        <div class="section-title">設定</div>
+
+        <label class="field">
+          <span>圖片</span>
           <input id="imageInput" type="file" accept="image/*" multiple />
         </label>
 
-        <label class="field">
-          <span>檔名</span>
-          <input id="filenameInput" type="text" placeholder="A4 拼貼" />
-        </label>
+        <div class="field two-up">
+          <label>
+            <span>版型</span>
+            <select id="layoutMode">
+              <option value="1">1 欄</option>
+              <option value="2">2 欄</option>
+              <option value="3" selected>3 欄</option>
+              <option value="special_2_1">上 2 下 1</option>
+            </select>
+          </label>
+          <label>
+            <span>檔名</span>
+            <input id="filenameInput" type="text" />
+          </label>
+        </div>
 
-        <label class="field">
-          <span>版型</span>
-          <select id="layoutMode">
-            <option value="1">1 欄</option>
-            <option value="2">2 欄</option>
-            <option value="3" selected>3 欄</option>
-            <option value="special_2_1">上 2 下 1</option>
-          </select>
-        </label>
+        <div class="field slider-wrap">
+          <label for="rowGap">上下間距 <strong id="rowGapValue">16 px</strong></label>
+          <input id="rowGap" type="range" min="0" max="48" step="1" value="12" />
+        </div>
 
-        <label class="field">
-          <span>上下間距 <strong id="rowGapValue">16 px</strong></span>
-          <input id="rowGap" type="range" min="0" max="64" value="16" />
-        </label>
+        <div class="field slider-wrap">
+          <label for="colGap">左右欄距 <strong id="colGapValue">20 px</strong></label>
+          <input id="colGap" type="range" min="0" max="56" step="1" value="14" />
+        </div>
 
-        <label class="field">
-          <span>左右欄距 <strong id="colGapValue">24 px</strong></span>
-          <input id="colGap" type="range" min="0" max="80" value="24" />
-        </label>
+        <div class="field two-up">
+          <label>
+            <span>外圍背景</span>
+            <input id="outerBg" type="color" value="#f8fafc" />
+          </label>
+          <label>
+            <span>卡紙底色</span>
+            <input id="innerBg" type="color" value="#ffffff" />
+          </label>
+        </div>
 
-        <label class="field">
-          <span>外圍背景</span>
-          <input id="outerBg" type="color" value="#f7f4ed" />
-        </label>
+        <div class="field">
+          <span>常用色</span>
+          <div id="palette" class="palette"></div>
+        </div>
 
-        <label class="field">
-          <span>卡紙底色</span>
-          <input id="innerBg" type="color" value="#ffffff" />
-        </label>
+        <div class="actions">
+          <button id="downloadBtn" class="primary"><i class="fa-solid fa-download"></i> 下載 PNG</button>
+          <button id="resetBtn" class="danger"><i class="fa-solid fa-trash"></i> 重設全部</button>
+        </div>
+      </section>
 
-        <label class="field">
-          <span>邊框樣式</span>
-          <select id="frameStyle">
-            <option value="none">無邊框</option>
-            <option value="gallery" selected>畫廊細框</option>
-            <option value="botanical">植物角花</option>
-            <option value="deco">Art Deco</option>
-            <option value="soft">柔和雙框</option>
-          </select>
-        </label>
-      </div>
+      <section class="panel board-panel" id="boardSection">
+        <div class="section-title">拖曳佈局看板</div>
+        <div class="board-help">按住卡片主體拖曳。v1.1 已改成跟手指移動的自訂拖曳引擎。</div>
+        <div id="board" class="board"></div>
+      </section>
 
-      <div class="action-row">
-        <button id="resetBtn" class="danger">重設全部</button>
-        <button id="downloadBtn" class="primary">下載 PNG</button>
-      </div>
-    </section>
-
-    <section class="board card" id="boardSection">
-      <div class="section-head">
-        <h2>拖曳佈局看板</h2>
-        <p class="muted">手機可左右滑動欄位；卡片可上下排序與跨欄移動。</p>
-      </div>
-      <div id="boardScroller" class="board-scroller">
-        <div id="boardColumns" class="board-columns"></div>
-      </div>
-    </section>
-
-    <section class="preview card" id="previewSection">
-      <div class="section-head">
-        <h2>預覽與下載</h2>
-        <p class="muted">A4 2480 × 3508，比例固定。</p>
-      </div>
-      <div class="preview-stage">
-        <canvas id="previewCanvas" width="2480" height="3508"></canvas>
-      </div>
-    </section>
+      <section class="panel preview-panel" id="previewSection">
+        <div class="section-title">A4 預覽</div>
+        <div class="preview-wrap">
+          <canvas id="previewCanvas" width="2480" height="3508"></canvas>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <template id="cardTemplate">
-    <article class="board-card" draggable="true">
-      <div class="thumb-wrap"><img class="thumb" alt="thumb" /></div>
-      <div class="card-main">
-        <div class="card-title">圖片項目</div>
-        <div class="card-meta"></div>
-      </div>
-      <div class="card-side">
-        <button class="link-btn" type="button" title="無縫貼齊">🔗</button>
-        <button class="delete-btn" type="button" title="刪除">🗑️</button>
-      </div>
-    </article>
-  </template>
-
-  <script src="app.js"></script>
+  <div id="dragLayer" class="drag-layer"></div>
+  <script src="./app.js"></script>
 </body>
 </html>
