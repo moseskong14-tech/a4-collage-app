@@ -1,4 +1,5 @@
-console.log('APP VERSION = FIX_20260403_B');
+console.log('APP VERSION = FIX_20260403_C');
+alert('FIX_20260403_C');
 document.addEventListener('DOMContentLoaded', () => {
   const tag = document.createElement('div');
   tag.textContent = 'FIX_20260403_B';
