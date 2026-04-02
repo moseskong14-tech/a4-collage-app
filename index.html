@@ -1,96 +1,268 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>A4 拼貼重建 v1.1</title>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A4 專業排版工具</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div>
-        <h1>A4 拼貼重建 v1.1</h1>
-        <p>自訂拖曳引擎版</p>
-      </div>
-      <div class="save-status"><span id="saveDot" class="dot idle"></span><span id="saveText">尚未存檔</span></div>
-    </header>
-
-    <main class="layout">
-      <section class="panel controls" id="controlsSection">
-        <div class="section-title">設定</div>
-
-        <label class="field">
-          <span>圖片</span>
-          <input id="imageInput" type="file" accept="image/*" multiple />
-        </label>
-
-        <div class="field two-up">
-          <label>
-            <span>版型</span>
-            <select id="layoutMode">
-              <option value="1">1 欄</option>
-              <option value="2">2 欄</option>
-              <option value="3" selected>3 欄</option>
-              <option value="special_2_1">上 2 下 1</option>
-            </select>
-          </label>
-          <label>
-            <span>檔名</span>
-            <input id="filenameInput" type="text" />
-          </label>
+<body class="bg-slate-50 text-slate-800 mobile-safe">
+  <div class="max-w-7xl mx-auto p-3 lg:p-6">
+    <div class="mobile-top-nav lg:hidden">
+      <button class="mobile-nav-btn is-active" data-scroll-target="controlsSection"><i class="fa-solid fa-sliders"></i><span>設定</span></button>
+      <button class="mobile-nav-btn" data-scroll-target="boardSection"><i class="fa-solid fa-grip"></i><span>看板</span></button>
+      <button class="mobile-nav-btn" data-scroll-target="previewSection"><i class="fa-solid fa-eye"></i><span>預覽</span></button>
+    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+      <section id="controlsSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-5 space-y-5 mobile-panel">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 class="text-2xl font-bold">A4 專業排版工具</h1>
+            <p class="text-sm text-slate-500 mt-1">依照你提供的規格製作成可直接開啟使用的網頁版。</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <label class="btn-primary cursor-pointer">
+              <i class="fa-solid fa-images"></i>
+              <span>加入圖片</span>
+              <input id="imageInput" type="file" accept="image/*" multiple class="hidden" />
+            </label>
+            <button id="openTextCardBtn" class="btn-warning"><i class="fa-solid fa-note-sticky"></i><span>文字卡紙</span></button>
+            <button id="resetBtn" class="btn-danger"><i class="fa-solid fa-triangle-exclamation"></i><span>重設全部</span></button>
+          </div>
         </div>
 
-        <div class="field slider-wrap">
-          <label for="rowGap">上下間距 <strong id="rowGapValue">16 px</strong></label>
-          <input id="rowGap" type="range" min="0" max="48" step="1" value="12" />
+        <div class="mobile-settings-stack">
+          <details class="settings-group" open>
+            <summary><span><i class="fa-solid fa-table-columns"></i> 基本排版</span><i class="fa-solid fa-chevron-down"></i></summary>
+            <div class="settings-group-body grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="field-label">排版欄數</label>
+                <select id="layoutMode" class="field-input">
+                  <option value="1">1 欄</option>
+                  <option value="2">2 欄</option>
+                  <option value="3" selected>3 欄</option>
+                  <option value="4">4 欄</option>
+                  <option value="special_2_1">🌟 3張特排：上2下1</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">上下間距（同欄） <span id="gapValue" class="text-slate-400">12</span></label>
+                <input id="defaultGap" type="range" min="0" max="180" value="12" step="1" class="w-full" />
+              </div>
+              <div>
+                <label class="field-label">左右欄距（欄與欄之間） <span id="columnGapValue" class="text-slate-400">24 px</span></label>
+                <input id="columnGap" type="range" min="0" max="280" value="24" step="1" class="w-full" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="field-label">A4 藝術邊框</label>
+                <select id="frameStyle" class="field-input">
+                  <option value="editorial-luxe" selected>典藏金線畫廊框</option>
+                  <option value="botanical-atelier">高級植物工作室框</option>
+                  <option value="artdeco-ornament">Art Deco 裝飾框</option>
+                  <option value="papercut-bloom">紙雕花影框</option>
+                  <option value="watercolor-floral">浪漫水彩花卉</option>
+                  <option value="spring-daisy">春日小雛菊</option>
+                  <option value="rose-garden">典雅紅玫瑰</option>
+                  <option value="fresh-vine">清新綠葉藤蔓</option>
+                  <option value="ginkgo">燙金銀杏</option>
+                  <option value="sakura">富士櫻花</option>
+                  <option value="hydrangea">立體紫陽花叢</option>
+                  <option value="vintage-lace">復古蕾絲邊</option>
+                  <option value="geometric-arch">現代幾何拱門</option>
+                  <option value="starry-night">星夜點金</option>
+                  <option value="confetti-corners">彩紙派對角花</option>
+                  <option value="bamboo-zen">東方竹影</option>
+                  <option value="ribbon-corners">緞帶角飾</option>
+                  <option value="none">無</option>
+                  <option value="solid-white">純白邊框</option>
+                  <option value="double">雙線邊框</option>
+                  <option value="elegant">經典雅緻框</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="field-label">圖片立體白邊</label>
+                <button id="whiteBorderToggle" type="button" class="toggle-off"><span id="whiteBorderText">關閉</span></button>
+              </div>
+            </div>
+          </details>
+
+          <details class="settings-group" open>
+            <summary><span><i class="fa-solid fa-palette"></i> 色彩與底色</span><i class="fa-solid fa-chevron-down"></i></summary>
+            <div class="settings-group-body grid grid-cols-1 gap-4">
+              <div>
+                <label class="field-label">外圍背景底色</label>
+                <div class="flex items-center gap-2 overflow-x-auto pb-1 shared-color-row" id="globalBgPalette">
+                  <input id="globalBgColor" type="color" class="color-picker" value="#f8fafc" />
+                </div>
+              </div>
+              <div>
+                <label class="field-label">內圍卡紙底色</label>
+                <div class="flex items-center gap-2 overflow-x-auto pb-1 shared-color-row" id="innerBgPalette">
+                  <input id="innerBgColor" type="color" class="color-picker" value="#ffffff" />
+                </div>
+              </div>
+              <div>
+                <label class="field-label">線條與花紋顏色</label>
+                <div class="flex items-center gap-2 overflow-x-auto pb-1">
+                  <input id="patternColor" type="color" class="color-picker" value="#c9a227" />
+                  <button class="swatch ring-2 ring-slate-300" data-target="patternColor" data-color="#c9a227" style="background:#c9a227"></button>
+                  <button class="swatch" data-target="patternColor" data-color="#64748b" style="background:#64748b"></button>
+                  <button class="swatch" data-target="patternColor" data-color="#be123c" style="background:#be123c"></button>
+                  <button class="swatch" data-target="patternColor" data-color="#0f766e" style="background:#0f766e"></button>
+                  <button class="swatch" data-target="patternColor" data-color="#1d4ed8" style="background:#1d4ed8"></button>
+                  <button class="swatch" data-target="patternColor" data-color="#7c3aed" style="background:#7c3aed"></button>
+                  <button class="swatch" data-target="patternColor" data-color="#ea580c" style="background:#ea580c"></button>
+                  <button class="swatch" data-target="patternColor" data-color="#111827" style="background:#111827"></button>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
 
-        <div class="field slider-wrap">
-          <label for="colGap">左右欄距 <strong id="colGapValue">20 px</strong></label>
-          <input id="colGap" type="range" min="0" max="56" step="1" value="14" />
-        </div>
+              </section>
 
-        <div class="field two-up">
-          <label>
-            <span>外圍背景</span>
-            <input id="outerBg" type="color" value="#f8fafc" />
-          </label>
-          <label>
-            <span>卡紙底色</span>
-            <input id="innerBg" type="color" value="#ffffff" />
-          </label>
+      <section id="boardSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-5 space-y-4 mobile-panel">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">拖曳佈局看板</h2>
+          <span class="text-xs text-slate-400">拖曳排序 / 跨欄移動 / 無縫貼齊</span>
         </div>
-
-        <div class="field">
-          <span>常用色</span>
-          <div id="palette" class="palette"></div>
-        </div>
-
-        <div class="actions">
-          <button id="downloadBtn" class="primary"><i class="fa-solid fa-download"></i> 下載 PNG</button>
-          <button id="resetBtn" class="danger"><i class="fa-solid fa-trash"></i> 重設全部</button>
-        </div>
+        <div id="kanbanBoard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       </section>
 
-      <section class="panel board-panel" id="boardSection">
-        <div class="section-title">拖曳佈局看板</div>
-        <div class="board-help">按住卡片主體拖曳。v1.1 已改成跟手指移動的自訂拖曳引擎。</div>
-        <div id="board" class="board"></div>
-      </section>
+      <section id="previewSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-5 space-y-4 mobile-panel">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div class="font-semibold">預覽與下載</div>
+            <div class="text-sm text-slate-500">2480 × 3508 • 300DPI</div>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <span id="saveDot" class="w-3 h-3 rounded-full bg-slate-300 inline-block"></span>
+            <span id="saveText" class="text-slate-500">尚未存檔</span>
+          </div>
+        </div>
 
-      <section class="panel preview-panel" id="previewSection">
-        <div class="section-title">A4 預覽</div>
-        <div class="preview-wrap">
-          <canvas id="previewCanvas" width="2480" height="3508"></canvas>
+        <div class="flex gap-3 flex-col sm:flex-row">
+          <div class="flex-1 relative">
+            <i class="fa-solid fa-pen absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="filenameInput" class="field-input pl-10" type="text" />
+          </div>
+          <button id="downloadBtn" class="btn-primary justify-center"><i class="fa-solid fa-download"></i><span>直接下載</span></button>
+        </div>
+
+        <div class="preview-stage relative rounded-2xl bg-slate-100 border border-slate-200 p-3 min-h-[70vh] flex items-center justify-center overflow-hidden">
+          <div id="loading" class="absolute inset-0 hidden bg-white/75 backdrop-blur-sm flex items-center justify-center z-10">
+            <div class="text-center">
+              <div class="loader mx-auto mb-3"></div>
+              <div class="text-sm text-slate-500">載入中…</div>
+            </div>
+          </div>
+          <canvas id="collageCanvas" width="2480" height="3508" class="preview-canvas object-contain bg-white rounded-xl shadow"></canvas>
         </div>
       </section>
-    </main>
+    </div>
   </div>
 
-  <div id="dragLayer" class="drag-layer"></div>
+  <div id="textCardModal" class="modal hidden">
+    <div class="modal-panel max-w-5xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-bold">文字卡紙</h3>
+        <button data-close="textCardModal" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-5">
+        <div class="rounded-2xl bg-slate-100 p-3 border border-slate-200 flex items-center justify-center min-h-[70vh]">
+          <canvas id="textCardPreview" width="1000" height="1400" class="max-w-full max-h-[68vh] bg-white rounded-xl shadow"></canvas>
+        </div>
+        <div class="space-y-4">
+          <textarea id="textCardContent" class="field-input min-h-[160px]" placeholder="輸入文字內容…"></textarea>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="field-label">文字顏色</label>
+              <input id="textCardTextColor" type="color" class="field-input h-11 p-1" value="#0f172a">
+            </div>
+            <div>
+              <label class="field-label">卡紙底色</label>
+              <input id="textCardBgColor" type="color" class="field-input h-11 p-1" value="#ffffff">
+            </div>
+            <div>
+              <label class="field-label">文字大小</label>
+              <input id="textCardFontSize" type="range" min="20" max="120" value="52" class="w-full">
+            </div>
+            <div>
+              <label class="field-label">水平對齊</label>
+              <select id="textCardAlignH" class="field-input">
+                <option value="left">左</option>
+                <option value="center" selected>中</option>
+                <option value="right">右</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">垂直對齊</label>
+              <select id="textCardAlignV" class="field-input">
+                <option value="top">上</option>
+                <option value="center" selected>中</option>
+                <option value="bottom">下</option>
+              </select>
+            </div>
+          </div>
+          <button id="addTextCardBtn" class="btn-primary w-full justify-center"><i class="fa-solid fa-plus"></i><span>產生並加入排版</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="imageTextModal" class="modal hidden">
+    <div class="modal-panel max-w-5xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-bold">圖片加字</h3>
+        <button data-close="imageTextModal" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-5">
+        <div class="rounded-2xl bg-slate-100 p-3 border border-slate-200 flex items-center justify-center min-h-[70vh] overflow-hidden">
+          <canvas id="imageTextPreview" width="1000" height="1400" class="max-w-full max-h-[68vh] bg-white rounded-xl shadow touch-none"></canvas>
+        </div>
+        <div class="space-y-4">
+          <textarea id="imageTextContent" class="field-input min-h-[140px]" placeholder="輸入要加到圖片上的文字…"></textarea>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="field-label">文字顏色</label>
+              <input id="imageTextColor" type="color" class="field-input h-11 p-1" value="#ffffff">
+            </div>
+            <div>
+              <label class="field-label">文字大小比例</label>
+              <input id="imageTextSize" type="range" min="2" max="18" value="7" class="w-full">
+            </div>
+            <div>
+              <label class="field-label">水平對齊</label>
+              <select id="imageTextAlign" class="field-input">
+                <option value="left">左</option>
+                <option value="center" selected>中</option>
+                <option value="right">右</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button data-quick-y="top" class="btn-secondary quick-y-btn">快速靠上</button>
+            <button data-quick-y="center" class="btn-secondary quick-y-btn">置中</button>
+            <button data-quick-y="bottom" class="btn-secondary quick-y-btn">靠下</button>
+          </div>
+          <button id="applyImageTextBtn" class="btn-primary w-full justify-center"><i class="fa-solid fa-check"></i><span>確定套用文字</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-bottom-dock lg:hidden">
+    <label class="mobile-dock-btn cursor-pointer">
+      <i class="fa-solid fa-images"></i><span>加圖</span>
+      <input id="imageInputMobileProxy" type="file" accept="image/*" multiple class="hidden" />
+    </label>
+    <button id="mobileTextCardBtn" class="mobile-dock-btn"><i class="fa-solid fa-note-sticky"></i><span>文字卡</span></button>
+    <button id="mobileDownloadBtn" class="mobile-dock-btn mobile-dock-btn-primary"><i class="fa-solid fa-download"></i><span>下載</span></button>
+  </div>
+
   <script src="./app.js"></script>
 </body>
 </html>
