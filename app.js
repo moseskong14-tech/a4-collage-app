@@ -327,41 +327,7 @@ function renderKanban() {
     });
 
     const isMobileBoard = window.matchMedia('(max-width: 1023px)').matches;
-    new Sortable(list, {
-      group: 'kanban',
-      animation: isMobileBoard ? 0 : 90,
-      easing: isMobileBoard ? 'linear' : 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-      draggable: '.kanban-item',
-      handle: '.kanban-drag-content',
-      ghostClass: 'sortable-ghost',
-      chosenClass: 'sortable-chosen',
-      dragClass: 'sortable-drag',
-      forceFallback: true,
-      fallbackOnBody: true,
-      fallbackTolerance: 0,
-      swapThreshold: isMobileBoard ? 0.34 : 0.44,
-      invertSwap: false,
-      direction: 'vertical',
-      invertedSwapThreshold: isMobileBoard ? 0.68 : 0.76,
-      delayOnTouchOnly: false,
-      delay: 0,
-      touchStartThreshold: 1,
-      scroll: true,
-      bubbleScroll: true,
-      scrollSensitivity: isMobileBoard ? 80 : 120,
-      scrollSpeed: isMobileBoard ? 16 : 20,
-      emptyInsertThreshold: isMobileBoard ? 20 : 28,
-      filter: '.kanban-card-actions button,.align-btn,button,input,textarea,select,label,a',
-      preventOnFilter: false,
-      setData: dataTransfer => dataTransfer.setData('text/plain', ''),
-      onFilter: evt => evt.preventDefault(),
-      removeCloneOnHide: true,
-      onChoose: evt => handleSortChoose(evt),
-      onUnchoose: () => clearDropIndicators(),
-      onStart: evt => handleSortStart(evt),
-      onMove: evt => handleSortMove(evt),
-      onEnd: evt => handleSortEnd(evt)
-    });
+    // removed Sortable
   });
 
   document.querySelectorAll('.align-btn').forEach(btn => btn.addEventListener('click', () => cycleAlign(Number(btn.dataset.col))));
@@ -1327,3 +1293,52 @@ function downloadCanvas() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, 'image/png');
 }
+
+
+// ===== CUSTOM DRAG ENGINE v1.1 =====
+let dragItem = null;
+let dragOverlay = null;
+
+document.addEventListener('pointerdown', (e) => {
+  const card = e.target.closest('.kanban-item');
+  if (!card) return;
+
+  dragItem = card;
+  dragOverlay = card.cloneNode(true);
+  dragOverlay.style.position = 'fixed';
+  dragOverlay.style.pointerEvents = 'none';
+  dragOverlay.style.opacity = '0.85';
+  dragOverlay.style.zIndex = '9999';
+  document.body.appendChild(dragOverlay);
+
+  moveOverlay(e);
+
+  document.addEventListener('pointermove', moveOverlay);
+  document.addEventListener('pointerup', endDrag);
+});
+
+function moveOverlay(e) {
+  if (!dragOverlay) return;
+  dragOverlay.style.left = e.clientX + 10 + 'px';
+  dragOverlay.style.top = e.clientY + 10 + 'px';
+}
+
+function endDrag(e) {
+  if (!dragItem) return;
+
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  const dropCol = target?.closest('.kanban-list');
+
+  if (dropCol) {
+    dropCol.appendChild(dragItem);
+  }
+
+  if (dragOverlay) dragOverlay.remove();
+
+  dragItem = null;
+  dragOverlay = null;
+
+  document.removeEventListener('pointermove', moveOverlay);
+  document.removeEventListener('pointerup', endDrag);
+}
+// ===== END =====
