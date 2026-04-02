@@ -15,6 +15,9 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
 .color-picker{padding:0;background:linear-gradient(135deg,#f472b6,#60a5fa,#34d399)}
 .shared-color-row{scrollbar-width:none}
 .shared-color-row::-webkit-scrollbar{display:none}
+.palette-grid{display:grid !important;grid-template-columns:repeat(6,minmax(0,1fr));gap:.55rem;align-items:center}
+.palette-grid .color-picker,.palette-grid .swatch{width:100%;aspect-ratio:1/1;height:auto;min-width:0}
+.palette-grid .ring-2{box-shadow:0 0 0 2px rgba(148,163,184,.38)}
 .toggle-off,.toggle-on{height:2.75rem;width:100%;border-radius:999px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1px solid #cbd5e1;transition:.18s ease}
 .toggle-off{background:#f8fafc;color:#64748b}.toggle-on{background:#0f172a;color:#fff}
 .kanban-col{background:#f8fafc;border:1px solid #e2e8f0;border-radius:1.25rem;padding:1rem}
@@ -601,3 +604,7 @@ body.kanban-drag-active .kanban-drag-handle {
 
 .field-label span.text-slate-400{font-variant-numeric:tabular-nums}
 input[type="range"]{accent-color:#2563eb}
+
+@media (max-width: 640px){
+  .palette-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:.45rem}
+}
