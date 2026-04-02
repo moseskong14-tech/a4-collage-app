@@ -1352,30 +1352,46 @@ function isInteractiveTarget(el) {
 function buildPlaceholder(cardRect) {
   const ph = document.createElement('div');
   ph.className = 'kanban-item kanban-placeholder';
-  ph.style.height = `${Math.max(70, Math.round(cardRect.height))}px`;
+  ph.style.height = `${Math.max(84, Math.round(cardRect.height))}px`;
   return ph;
 }
 
 function buildOverlay(card, rect) {
-  const overlay = card.cloneNode(true);
-  overlay.classList.add('kanban-drag-overlay');
+  const overlay = document.createElement('div');
+  overlay.className = 'kanban-item kanban-drag-overlay';
+  const thumbSrc = card.querySelector('.kanban-thumb')?.getAttribute('src') || '';
+  const title = card.querySelector('.kanban-item-title')?.textContent || '圖片項目';
+  const typeChip = card.querySelector('.kanban-type-chip')?.textContent || '圖片';
+  const subChip = card.querySelector('.kanban-sub-chip')?.textContent || '高清預覽';
+  overlay.innerHTML = `
+    <div class="kanban-card-frame">
+      <div class="kanban-drag-content">
+        <div class="kanban-thumb-shell"><img class="kanban-thumb" src="${thumbSrc}" alt="thumb"></div>
+        <div class="kanban-card-main">
+          <div class="kanban-chip-row">
+            <span class="kanban-type-chip">${typeChip}</span>
+            <span class="kanban-sub-chip">${subChip}</span>
+          </div>
+          <div class="kanban-item-title">${title}</div>
+        </div>
+      </div>
+    </div>`;
   overlay.style.position = 'fixed';
   overlay.style.left = '0px';
   overlay.style.top = '0px';
-  overlay.style.width = `${Math.round(rect.width)}px`;
-  overlay.style.height = `${Math.round(rect.height)}px`;
+  overlay.style.width = `${Math.round(Math.min(rect.width, 220))}px`;
   overlay.style.pointerEvents = 'none';
   overlay.style.zIndex = '99999';
   overlay.style.margin = '0';
-  overlay.style.opacity = '0.96';
+  overlay.style.opacity = '0.97';
   overlay.style.transform = 'translate3d(-9999px,-9999px,0)';
   return overlay;
 }
 
 function updateOverlayPosition(clientX, clientY) {
   if (!dragRuntime.overlay) return;
-  const x = clientX - dragRuntime.offsetX;
-  const y = clientY - dragRuntime.offsetY;
+  const x = clientX - Math.min(dragRuntime.offsetX, 36);
+  const y = clientY - Math.min(dragRuntime.offsetY, 28);
   dragRuntime.overlay.style.transform = `translate3d(${x}px, ${y}px, 0)`;
 }
 
