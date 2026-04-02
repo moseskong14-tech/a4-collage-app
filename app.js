@@ -269,8 +269,8 @@ async function createPreview(src, maxSize = 520, quality = 0.94) {
 function renderKanban() {
   els.kanbanBoard.innerHTML = '';
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
-  els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-4`;
-  els.kanbanBoard.style.setProperty('--kanban-col-gap', `${Math.max(8, Math.round(getEffectiveColumnGap(getColumnGapValue()) * 0.58))}px`);
+  els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-0`;
+  els.kanbanBoard.style.setProperty('--kanban-col-gap', '0px');
   els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(getEffectiveRowGap(els.defaultGap.value) * 0.5))}px`);
 
   columnsState.forEach((col, colIndex) => {
@@ -862,32 +862,64 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
 
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const requestedTopGap = Math.max(0, Number(settings.columnGap ?? 24));
-  const topGap = Math.min(requestedTopGap, safeW * 0.42);
-  const colWidth = Math.max(safeW * 0.24, (safeW - topGap) / 2);
-  const topHeights = [0,1].map(i => columnsState[i]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + colWidth * (img.height/img.width) + (idx < columnsState[i].items.length - 1 ? settings.defaultGap : 0);},0) || 0);
-  const bottomWidth = Math.max(safeW * .42, Math.min(safeW, safeW - topGap * 1.05));
-  const bottomHeight = columnsState[2]?.items.reduce((sum,item,idx)=>{ const img = imageRegistry[item.id]?.img; if(!img) return sum; return sum + bottomWidth * (img.height/img.width) + (idx < columnsState[2].items.length - 1 ? settings.defaultGap : 0);},0) || 0;
-  const totalH = Math.max(...topHeights) + settings.defaultGap + bottomHeight;
+  const baseTopGap = Math.min(requestedTopGap, safeW * 0.08);
+  const baseTopWidth = (safeW - baseTopGap) / 2;
+  const baseBottomWidth = Math.min(safeW * 0.76, baseTopWidth * 1.18);
+
+  const topHeights = [0,1].map(i => {
+    const col = columnsState[i] || { items: [] };
+    return col.items.reduce((sum, item, idx) => {
+      const img = imageRegistry[item.id]?.img;
+      if (!img) return sum;
+      const h = baseTopWidth * (img.height / img.width);
+      return sum + h + (idx < col.items.length - 1 ? settings.defaultGap : 0);
+    }, 0);
+  });
+
+  const bottomCol = columnsState[2] || { items: [] };
+  const bottomHeight = bottomCol.items.reduce((sum, item, idx) => {
+    const img = imageRegistry[item.id]?.img;
+    if (!img) return sum;
+    const h = baseBottomWidth * (img.height / img.width);
+    return sum + h + (idx < bottomCol.items.length - 1 ? settings.defaultGap : 0);
+  }, 0);
+
+  const topSectionHeight = Math.max(...topHeights, 0);
+  const totalH = topSectionHeight + (bottomCol.items.length ? settings.defaultGap : 0) + bottomHeight;
   const scale = Math.min(1, safeH / Math.max(totalH, 1));
-  const topY = safeY + (safeH - totalH*scale)/2;
+
+  const topGap = baseTopGap * scale;
+  const topWidth = baseTopWidth * scale;
+  const bottomWidth = baseBottomWidth * scale;
+  const rowGap = settings.defaultGap * scale;
+  const topStartX = safeX + (safeW - (topWidth * 2 + topGap)) / 2;
+  const topY = safeY + (safeH - totalH * scale) / 2;
 
   [0,1].forEach(i => {
+    const col = columnsState[i] || { items: [], align: 'top' };
+    const x = topStartX + i * (topWidth + topGap);
     let y = topY;
-    const x = safeX + i * (colWidth + topGap);
-    columnsState[i].items.forEach(item => {
-      const img = imageRegistry[item.id]?.img; if(!img) return;
-      const h = colWidth * scale * (img.height / img.width);
-      drawImageRounded(ctx, img, x, y, colWidth, h, 18);
-      y += h + settings.defaultGap * scale;
+    const colHeight = topHeights[i] * scale;
+    if (col.align === 'center') y = topY + (topSectionHeight * scale - colHeight) / 2;
+    if (col.align === 'bottom') y = topY + (topSectionHeight * scale - colHeight);
+
+    col.items.forEach(item => {
+      const img = imageRegistry[item.id]?.img; if (!img) return;
+      const drawW = topWidth;
+      const drawH = drawW * (img.height / img.width);
+      drawImageRounded(ctx, img, x, y, drawW, drawH, item.noGapBelow ? 8 : 18);
+      y += drawH + rowGap;
     });
   });
+
   const bottomX = safeX + (safeW - bottomWidth) / 2;
-  let bottomY = topY + Math.max(...topHeights) * scale + settings.defaultGap * scale;
-  columnsState[2].items.forEach(item => {
-    const img = imageRegistry[item.id]?.img; if(!img) return;
-    const h = bottomWidth * scale * (img.height / img.width);
-    drawImageRounded(ctx, img, bottomX, bottomY, bottomWidth, h, 18);
-    bottomY += h + settings.defaultGap * scale;
+  let bottomY = topY + topSectionHeight * scale + (bottomCol.items.length ? rowGap : 0);
+  bottomCol.items.forEach(item => {
+    const img = imageRegistry[item.id]?.img; if (!img) return;
+    const drawW = bottomWidth;
+    const drawH = drawW * (img.height / img.width);
+    drawImageRounded(ctx, img, bottomX, bottomY, drawW, drawH, item.noGapBelow ? 8 : 18);
+    bottomY += drawH + rowGap;
   });
 }
 
@@ -1295,50 +1327,233 @@ function downloadCanvas() {
 }
 
 
-// ===== CUSTOM DRAG ENGINE v1.1 =====
-let dragItem = null;
-let dragOverlay = null;
+// ===== CUSTOM DRAG ENGINE v1.2 =====
+const dragRuntime = {
+  pointerId: null,
+  sourceId: null,
+  sourceCol: -1,
+  sourceIndex: -1,
+  active: false,
+  overlay: null,
+  placeholder: null,
+  offsetX: 0,
+  offsetY: 0,
+  startX: 0,
+  startY: 0,
+  targetCol: -1,
+  targetIndex: -1,
+  moved: false
+};
 
-document.addEventListener('pointerdown', (e) => {
+function isInteractiveTarget(el) {
+  return !!el.closest('.kanban-card-actions, .align-btn, button, input, textarea, select, a, label');
+}
+
+function buildPlaceholder(cardRect) {
+  const ph = document.createElement('div');
+  ph.className = 'kanban-item kanban-placeholder';
+  ph.style.height = `${Math.max(70, Math.round(cardRect.height))}px`;
+  return ph;
+}
+
+function buildOverlay(card, rect) {
+  const overlay = card.cloneNode(true);
+  overlay.classList.add('kanban-drag-overlay');
+  overlay.style.position = 'fixed';
+  overlay.style.left = '0px';
+  overlay.style.top = '0px';
+  overlay.style.width = `${Math.round(rect.width)}px`;
+  overlay.style.height = `${Math.round(rect.height)}px`;
+  overlay.style.pointerEvents = 'none';
+  overlay.style.zIndex = '99999';
+  overlay.style.margin = '0';
+  overlay.style.opacity = '0.96';
+  overlay.style.transform = 'translate3d(-9999px,-9999px,0)';
+  return overlay;
+}
+
+function updateOverlayPosition(clientX, clientY) {
+  if (!dragRuntime.overlay) return;
+  const x = clientX - dragRuntime.offsetX;
+  const y = clientY - dragRuntime.offsetY;
+  dragRuntime.overlay.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+}
+
+function clearDragClasses() {
+  document.body.classList.remove('kanban-drag-active', 'kanban-sort-lock', 'kanban-actually-dragging');
+  document.querySelectorAll('.kanban-list').forEach(list => list.classList.remove('is-drop-target'));
+  document.querySelectorAll('.kanban-item').forEach(item => item.classList.remove('drop-before', 'drop-after', 'is-drag-source'));
+}
+
+function findItemPositionById(id) {
+  for (let c = 0; c < columnsState.length; c++) {
+    const idx = columnsState[c].items.findIndex(item => item.id === id);
+    if (idx !== -1) return { col: c, index: idx };
+  }
+  return { col: -1, index: -1 };
+}
+
+function getDropPosition(clientX, clientY) {
+  const prevDisplay = dragRuntime.overlay ? dragRuntime.overlay.style.display : '';
+  if (dragRuntime.overlay) dragRuntime.overlay.style.display = 'none';
+  const target = document.elementFromPoint(clientX, clientY);
+  if (dragRuntime.overlay) dragRuntime.overlay.style.display = prevDisplay;
+
+  const list = target?.closest('.kanban-list');
+  if (!list) return null;
+  const col = Number(list.dataset.col);
+  const items = Array.from(list.querySelectorAll('.kanban-item:not(.kanban-placeholder):not(.is-drag-source)'));
+
+  let insertIndex = items.length;
+  let related = null;
+  let after = true;
+
+  for (let i = 0; i < items.length; i++) {
+    const rect = items[i].getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (clientY < midY) {
+      insertIndex = i;
+      related = items[i];
+      after = false;
+      break;
+    }
+  }
+
+  if (related == null && items.length) {
+    related = items[items.length - 1];
+    after = true;
+  }
+
+  return { list, col, insertIndex, related, after };
+}
+
+function movePlaceholder(pos) {
+  if (!pos || !dragRuntime.placeholder) return;
+  document.querySelectorAll('.kanban-list').forEach(list => list.classList.remove('is-drop-target'));
+  document.querySelectorAll('.kanban-item').forEach(item => item.classList.remove('drop-before', 'drop-after'));
+  pos.list.classList.add('is-drop-target');
+
+  if (pos.related) {
+    pos.related.classList.add(pos.after ? 'drop-after' : 'drop-before');
+    pos.list.insertBefore(dragRuntime.placeholder, pos.after ? pos.related.nextSibling : pos.related);
+  } else {
+    pos.list.appendChild(dragRuntime.placeholder);
+  }
+
+  dragRuntime.targetCol = pos.col;
+  dragRuntime.targetIndex = pos.insertIndex;
+}
+
+function onKanbanPointerDown(e) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (isInteractiveTarget(e.target)) return;
+  const handle = e.target.closest('.kanban-drag-content, .kanban-drag-handle');
+  if (!handle) return;
   const card = e.target.closest('.kanban-item');
   if (!card) return;
 
-  dragItem = card;
-  dragOverlay = card.cloneNode(true);
-  dragOverlay.style.position = 'fixed';
-  dragOverlay.style.pointerEvents = 'none';
-  dragOverlay.style.opacity = '0.85';
-  dragOverlay.style.zIndex = '9999';
-  document.body.appendChild(dragOverlay);
+  const id = card.dataset.id;
+  const pos = findItemPositionById(id);
+  if (pos.col === -1) return;
 
-  moveOverlay(e);
+  const rect = card.getBoundingClientRect();
+  dragRuntime.pointerId = e.pointerId;
+  dragRuntime.sourceId = id;
+  dragRuntime.sourceCol = pos.col;
+  dragRuntime.sourceIndex = pos.index;
+  dragRuntime.startX = e.clientX;
+  dragRuntime.startY = e.clientY;
+  dragRuntime.offsetX = e.clientX - rect.left;
+  dragRuntime.offsetY = e.clientY - rect.top;
+  dragRuntime.active = false;
+  dragRuntime.moved = false;
 
-  document.addEventListener('pointermove', moveOverlay);
-  document.addEventListener('pointerup', endDrag);
-});
-
-function moveOverlay(e) {
-  if (!dragOverlay) return;
-  dragOverlay.style.left = e.clientX + 10 + 'px';
-  dragOverlay.style.top = e.clientY + 10 + 'px';
+  try { handle.setPointerCapture?.(e.pointerId); } catch {}
+  document.addEventListener('pointermove', onKanbanPointerMove, { passive: false });
+  document.addEventListener('pointerup', onKanbanPointerUp, { passive: false, once: false });
+  document.addEventListener('pointercancel', onKanbanPointerUp, { passive: false, once: false });
 }
 
-function endDrag(e) {
-  if (!dragItem) return;
+function beginDrag(card, clientX, clientY) {
+  const rect = card.getBoundingClientRect();
+  dragRuntime.active = true;
+  dragRuntime.overlay = buildOverlay(card, rect);
+  dragRuntime.placeholder = buildPlaceholder(rect);
+  card.classList.add('is-drag-source');
+  document.body.appendChild(dragRuntime.overlay);
+  card.parentElement?.insertBefore(dragRuntime.placeholder, card.nextSibling);
+  document.body.classList.add('kanban-drag-active', 'kanban-sort-lock', 'kanban-actually-dragging');
+  updateOverlayPosition(clientX, clientY);
+}
 
-  const target = document.elementFromPoint(e.clientX, e.clientY);
-  const dropCol = target?.closest('.kanban-list');
+function onKanbanPointerMove(e) {
+  if (e.pointerId !== dragRuntime.pointerId) return;
+  const sourceCard = document.querySelector(`.kanban-item[data-id="${dragRuntime.sourceId}"]`);
+  if (!sourceCard) return;
+  const dx = e.clientX - dragRuntime.startX;
+  const dy = e.clientY - dragRuntime.startY;
+  const dist = Math.hypot(dx, dy);
 
-  if (dropCol) {
-    dropCol.appendChild(dragItem);
+  if (!dragRuntime.active) {
+    if (dist < 4) return;
+    e.preventDefault();
+    beginDrag(sourceCard, e.clientX, e.clientY);
+  } else {
+    e.preventDefault();
   }
 
-  if (dragOverlay) dragOverlay.remove();
-
-  dragItem = null;
-  dragOverlay = null;
-
-  document.removeEventListener('pointermove', moveOverlay);
-  document.removeEventListener('pointerup', endDrag);
+  dragRuntime.moved = true;
+  updateOverlayPosition(e.clientX, e.clientY);
+  const pos = getDropPosition(e.clientX, e.clientY);
+  if (pos) movePlaceholder(pos);
 }
-// ===== END =====
+
+function finalizeDrag() {
+  const { sourceId, sourceCol, sourceIndex, targetCol, targetIndex } = dragRuntime;
+  if (sourceId == null) return;
+
+  if (targetCol !== -1 && sourceCol !== -1 && targetIndex !== -1) {
+    const [moved] = columnsState[sourceCol].items.splice(sourceIndex, 1);
+    if (moved) {
+      let insertIndex = targetIndex;
+      if (sourceCol === targetCol && sourceIndex < targetIndex) insertIndex -= 1;
+      insertIndex = Math.max(0, Math.min(insertIndex, columnsState[targetCol].items.length));
+      columnsState[targetCol].items.splice(insertIndex, 0, moved);
+    }
+  }
+}
+
+function resetDragRuntime() {
+  dragRuntime.pointerId = null;
+  dragRuntime.sourceId = null;
+  dragRuntime.sourceCol = -1;
+  dragRuntime.sourceIndex = -1;
+  dragRuntime.targetCol = -1;
+  dragRuntime.targetIndex = -1;
+  dragRuntime.active = false;
+  dragRuntime.moved = false;
+  dragRuntime.overlay?.remove();
+  dragRuntime.placeholder?.remove();
+  dragRuntime.overlay = null;
+  dragRuntime.placeholder = null;
+  clearDragClasses();
+}
+
+function onKanbanPointerUp(e) {
+  if (dragRuntime.pointerId !== null && e.pointerId !== dragRuntime.pointerId) return;
+  document.removeEventListener('pointermove', onKanbanPointerMove);
+  document.removeEventListener('pointerup', onKanbanPointerUp);
+  document.removeEventListener('pointercancel', onKanbanPointerUp);
+
+  if (dragRuntime.active && dragRuntime.moved) {
+    finalizeDrag();
+    resetDragRuntime();
+    renderKanban();
+    stateChanged();
+  } else {
+    resetDragRuntime();
+  }
+}
+
+document.addEventListener('pointerdown', onKanbanPointerDown, { passive: true });
+// ===== END CUSTOM DRAG ENGINE v1.2 =====
