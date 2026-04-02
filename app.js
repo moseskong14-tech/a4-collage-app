@@ -1,3 +1,20 @@
+console.log('APP VERSION = FIX_20260403_B');
+document.addEventListener('DOMContentLoaded', () => {
+  const tag = document.createElement('div');
+  tag.textContent = 'FIX_20260403_B';
+  tag.style.position = 'fixed';
+  tag.style.right = '10px';
+  tag.style.bottom = '10px';
+  tag.style.zIndex = '99999';
+  tag.style.background = '#111827';
+  tag.style.color = '#fff';
+  tag.style.padding = '6px 10px';
+  tag.style.borderRadius = '999px';
+  tag.style.fontSize = '12px';
+  tag.style.boxShadow = '0 6px 20px rgba(0,0,0,.18)';
+  document.body.appendChild(tag);
+}, { once: true });
+
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DB_NAME = 'A4CollageDB';
