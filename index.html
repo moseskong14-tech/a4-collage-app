@@ -6,8 +6,7 @@
   <title>A4 專業排版工具</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
 </head>
 <body class="bg-slate-50 text-slate-800 mobile-safe">
   <div class="max-w-7xl mx-auto p-3 lg:p-6">
@@ -17,8 +16,6 @@
       <button class="mobile-nav-btn" data-scroll-target="previewSection"><i class="fa-solid fa-eye"></i><span>預覽</span></button>
     </div>
     <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
-      <!-- Left column: controls -->
-      <div class="space-y-6">
       <section id="controlsSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-5 space-y-5 mobile-panel">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -96,19 +93,19 @@
             <div class="settings-group-body grid grid-cols-1 gap-4">
               <div>
                 <label class="field-label">外圍背景底色 <span class="text-slate-400">與內圍完全同款色盤</span></label>
-                <div class="shared-color-row palette-grid" id="globalBgPalette">
+                <div class="shared-color-row palette-scroll-row" id="globalBgPalette">
                   <input id="globalBgColor" type="color" class="color-picker" value="#f8fafc" />
                 </div>
               </div>
               <div>
                 <label class="field-label">內圍卡紙底色 <span class="text-slate-400">與外圍完全同款色盤</span></label>
-                <div class="shared-color-row palette-grid" id="innerBgPalette">
+                <div class="shared-color-row palette-scroll-row" id="innerBgPalette">
                   <input id="innerBgColor" type="color" class="color-picker" value="#ffffff" />
                 </div>
               </div>
               <div>
                 <label class="field-label">線條與花紋顏色</label>
-                <div class="shared-color-row palette-grid" id="patternPalette">
+                <div class="shared-color-row palette-scroll-row" id="patternPalette">
                   <input id="patternColor" type="color" class="color-picker" value="#c9a227" />
                   <button class="swatch ring-2 ring-slate-300" data-target="patternColor" data-color="#c9a227" style="background:#c9a227"></button>
                   <button class="swatch" data-target="patternColor" data-color="#64748b" style="background:#64748b"></button>
@@ -125,10 +122,7 @@
         </div>
 
               </section>
-      </div><!-- end left column -->
 
-      <!-- Right column: board + preview stacked -->
-      <div class="space-y-6">
       <section id="boardSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-5 space-y-4 mobile-panel">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold">拖曳佈局看板</h2>
@@ -167,7 +161,6 @@
           <canvas id="collageCanvas" width="2480" height="3508" class="preview-canvas object-contain bg-white rounded-xl shadow"></canvas>
         </div>
       </section>
-      </div><!-- end right column -->
     </div>
   </div>
 

@@ -112,9 +112,9 @@ html{scroll-behavior:smooth}
 .kanban-item.sortable-ghost{opacity:.42;background:#f8fbff;border-style:dashed}
 .kanban-item.nogap{box-shadow:0 10px 28px rgba(148,163,184,.12), inset 0 0 0 2px rgba(99,102,241,.16)}
 .kanban-card-left{display:grid;grid-template-columns:88px 18px 36px 36px 36px;align-items:center;gap:.7rem}
-.kanban-thumb-shell{width:88px;height:88px;border-radius:1.45rem;overflow:hidden;background:#f8fafc;border:1px solid #d9e1ef;box-shadow:0 10px 22px rgba(148,163,184,.18), inset 0 1px 0 rgba(255,255,255,.98);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.kanban-thumb-shell{width:88px;height:88px;border-radius:1.45rem;overflow:hidden;background:#f8fafc;border:1px solid #d9e1ef;box-shadow:0 10px 22px rgba(148,163,184,.18), inset 0 1px 0 rgba(255,255,255,.98);display:flex;align-items:center;justify-content:center;position:relative}
 .kanban-thumb-shell::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,.65);pointer-events:none}
-.kanban-thumb{width:100%;height:100%;object-fit:contain;image-rendering:auto;transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.kanban-thumb{width:100%;height:100%;object-fit:cover;image-rendering:auto;transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .kanban-order-rail{width:18px;min-height:60px;border-radius:999px;background:#f8fafc;border:1px solid #d9e1ef;color:#64748b;font-weight:900;font-size:1.9rem;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.95)}
 .kanban-mini-icon,.kanban-mini-spacer{width:36px;height:36px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #dde5f0;background:#fff;color:#94a3b8;box-shadow:0 6px 14px rgba(148,163,184,.14);flex:0 0 auto}
 .kanban-mini-icon:hover{transform:translateY(-1px);color:#6366f1;border-color:#c7d2fe}
@@ -553,7 +553,7 @@ body.kanban-drag-active .kanban-drag-handle {
 
 /* v12 preview stage full-width + refined mobile A4 scaling */
 #previewSection{overflow:visible}
-#previewSection .preview-stage{padding:.5rem !important;min-height:auto !important;background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);display:flex;align-items:center;justify-content:center;}
+#previewSection .preview-stage{padding:.5rem !important;min-height:auto !important;background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);}
 #previewSection .preview-canvas{display:block;width:100% !important;height:auto !important;max-width:100% !important;max-height:none !important;aspect-ratio:2480/3508;border-radius:1.2rem !important;box-shadow:0 24px 56px rgba(15,23,42,.14),0 8px 22px rgba(148,163,184,.18) !important;}
 @media (max-width: 1023px){
   #previewSection .preview-stage{padding:0 !important;border:none !important;background:transparent !important;}
@@ -687,3 +687,105 @@ input[type="range"]{accent-color:#2563eb}
 /* v4 palette rows unified */
 .shared-color-row.palette-grid, #patternPalette.palette-grid{max-width:100%;white-space:nowrap;}
 #patternPalette.palette-grid .color-picker, #patternPalette.palette-grid .swatch{width:2.6rem !important;height:2.6rem !important;min-width:2.6rem !important;flex:0 0 2.6rem !important;}
+
+
+/* v6 palette + drag + layout repairs */
+#globalBgPalette, #innerBgPalette, #patternPalette,
+.shared-color-row.palette-scroll-row{
+  display:flex !important;
+  flex-wrap:nowrap !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  gap:.65rem !important;
+  align-items:center !important;
+  white-space:nowrap !important;
+  max-width:100% !important;
+  padding-bottom:.25rem !important;
+  scrollbar-width:none !important;
+}
+#globalBgPalette::-webkit-scrollbar, #innerBgPalette::-webkit-scrollbar, #patternPalette::-webkit-scrollbar,
+.shared-color-row.palette-scroll-row::-webkit-scrollbar{display:none !important;}
+#globalBgPalette .swatch, #globalBgPalette .color-picker,
+#innerBgPalette .swatch, #innerBgPalette .color-picker,
+#patternPalette .swatch, #patternPalette .color-picker,
+.shared-color-row.palette-scroll-row .swatch,
+.shared-color-row.palette-scroll-row .color-picker{
+  width:2.75rem !important;
+  height:2.75rem !important;
+  min-width:2.75rem !important;
+  flex:0 0 2.75rem !important;
+  aspect-ratio:1/1 !important;
+}
+@media (max-width: 640px){
+  #globalBgPalette .swatch, #globalBgPalette .color-picker,
+  #innerBgPalette .swatch, #innerBgPalette .color-picker,
+  #patternPalette .swatch, #patternPalette .color-picker,
+  .shared-color-row.palette-scroll-row .swatch,
+  .shared-color-row.palette-scroll-row .color-picker{
+    width:2.55rem !important;
+    height:2.55rem !important;
+    min-width:2.55rem !important;
+    flex-basis:2.55rem !important;
+  }
+}
+.kanban-drag-overlay{
+  width:auto !important;
+  height:auto !important;
+  min-width:220px !important;
+  max-width:min(82vw, 300px) !important;
+  border-radius:1rem !important;
+  overflow:hidden !important;
+  background:#fff !important;
+  border:1px solid rgba(148,163,184,.28) !important;
+  box-shadow:0 16px 36px rgba(15,23,42,.18) !important;
+}
+.kanban-drag-overlay .kanban-card-frame{
+  display:flex !important;
+  align-items:center !important;
+  gap:.75rem !important;
+  padding:.75rem !important;
+}
+.kanban-drag-overlay .kanban-card-main{min-width:0 !important; flex:1 1 auto !important;}
+.kanban-drag-overlay .kanban-item-title,
+.kanban-drag-overlay .kanban-item-sub{white-space:normal !important; overflow:hidden !important;}
+.kanban-drag-overlay .kanban-item-sub{display:block !important; font-size:.72rem !important; line-height:1.2 !important; max-height:2.4em !important;}
+.kanban-drag-overlay .kanban-card-actions,
+.kanban-drag-overlay .kanban-drag-handle,
+.kanban-drag-overlay .kanban-chip-row{display:none !important;}
+.kanban-drag-overlay .kanban-thumb-shell{width:56px !important; height:56px !important; flex:0 0 56px !important;}
+.kanban-drag-overlay .kanban-thumb{object-fit:contain !important;}
+.kanban-item.is-drag-source{opacity:.14 !important;}
+
+
+/* v7 fixes */
+.shared-color-row,
+.palette-scroll-row,
+#globalBgPalette,
+#innerBgPalette,
+#patternPalette {
+  display:flex !important;
+  flex-wrap:nowrap !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  gap:.7rem !important;
+  align-items:center !important;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  padding-bottom:.2rem;
+}
+.shared-color-row::-webkit-scrollbar,
+.palette-scroll-row::-webkit-scrollbar,
+#globalBgPalette::-webkit-scrollbar,
+#innerBgPalette::-webkit-scrollbar,
+#patternPalette::-webkit-scrollbar { display:none; }
+#globalBgPalette .swatch,#globalBgPalette .color-picker,
+#innerBgPalette .swatch,#innerBgPalette .color-picker,
+#patternPalette .swatch,#patternPalette .color-picker {
+  width:3rem !important; height:3rem !important; min-width:3rem !important; flex:0 0 3rem !important;
+}
+.kanban-thumb { object-fit: contain !important; background:#f8fafc; }
+.kanban-drag-overlay { box-shadow:0 18px 42px rgba(15,23,42,.16) !important; }
+.kanban-drag-overlay .kanban-card-frame { grid-template-columns:64px minmax(0,1fr) !important; gap:.65rem !important; padding:.75rem !important; }
+.kanban-drag-overlay .kanban-thumb-shell { width:64px !important; height:64px !important; }
+.kanban-drag-overlay .kanban-thumb { width:100% !important; height:100% !important; object-fit:contain !important; }
+.kanban-placeholder { border:1px dashed #c7d2fe !important; background:rgba(239,246,255,.7) !important; border-radius:1.25rem !important; }
