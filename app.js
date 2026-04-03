@@ -823,26 +823,21 @@ function measureBlock(block, colWidth, gap) {
   return { metrics, totalHeight: total, bottomGap: gap };
 }
 
-
 function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const colCount = Math.max(1, columnsState.length);
   const requestedColGap = Math.max(0, Number(settings.columnGap ?? 18));
   const maxGap = colCount > 1 ? safeW * 0.42 : 0;
-  const baseColGap = Math.min(requestedColGap, maxGap);
-  const baseColWidth = colCount > 1 ? (safeW - baseColGap * (colCount - 1)) / colCount : safeW;
-
-  const blockData = columnsState.map(col => {
-    const blocks = createBlocks(col.items).map(b => measureBlock(b, baseColWidth, settings.defaultGap));
-    const virtualHeight = blocks.reduce((sum, b, i) => sum + b.totalHeight + (i < blocks.length - 1 ? settings.defaultGap : 0), 0);
-    return { blocks, virtualHeight };
-  });
-
-  const maxH = Math.max(1, ...blockData.map(b => b.virtualHeight));
-  const scale = Math.min(1, safeH / maxH);
-  const colWidth = baseColWidth * scale;
-  const colGap = baseColGap * scale;
+  const colGap = Math.min(requestedColGap, maxGap);
+  const colWidth = colCount > 1 ? (safeW - colGap * (colCount - 1)) / colCount : safeW;
   const contentWidth = colWidth * colCount + colGap * (colCount - 1);
   const startX = safeX + (safeW - contentWidth) / 2;
+  const blockData = columnsState.map(col => {
+    const blocks = createBlocks(col.items).map(b => measureBlock(b, colWidth, settings.defaultGap));
+    const virtualHeight = blocks.reduce((sum,b,i) => sum + b.totalHeight + (i < blocks.length - 1 ? settings.defaultGap : 0), 0);
+    return { blocks, virtualHeight };
+  });
+  const maxH = Math.max(1, ...blockData.map(b => b.virtualHeight));
+  const scale = Math.min(1, safeH / maxH);
 
   columnsState.forEach((col, cidx) => {
     const x = startX + cidx * (colWidth + colGap);
@@ -850,14 +845,13 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
     let y = safeY;
     if (col.align === 'center') y = safeY + (safeH - colH) / 2;
     if (col.align === 'bottom') y = safeY + (safeH - colH);
-
-    createBlocks(col.items).forEach((block) => {
-      const metric = measureBlock(block, baseColWidth, settings.defaultGap);
+    createBlocks(col.items).forEach((block, bidx) => {
+      const metric = measureBlock(block, colWidth, settings.defaultGap);
       const blockHeight = metric.totalHeight * scale;
       if (settings.whiteBorderEnabled && block.length) drawBlockBg(ctx, x, y, colWidth, blockHeight, scale);
-      block.forEach((item) => {
+      block.forEach((item, idx) => {
         const img = imageRegistry[item.id]?.img; if (!img) return;
-        const h = colWidth * (img.height / img.width);
+        const h = colWidth * scale * (img.height / img.width);
         drawImageRounded(ctx, img, x, y, colWidth, h, item.noGapBelow ? 8 : 18);
         y += h;
       });
@@ -866,6 +860,14 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   });
 }
 
+// Returns { img, ratio } where ratio = height/width (natural aspect ratio)
+function getImageNaturalSize(id) {
+  const reg = imageRegistry[id];
+  if (!reg || !reg.img) return null;
+  const img = reg.img;
+  if (!img.naturalWidth || !img.naturalHeight) return null;
+  return { img, ratio: img.naturalHeight / img.naturalWidth };
+}
 
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const topLeft = columnsState[0] || { items: [], align: 'top' };
@@ -874,14 +876,12 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
 
   const requestedGap = Math.max(0, Number(settings.columnGap ?? 24));
   const baseTopGap = Math.min(requestedGap, safeW * 0.10);
-  const nonEmptyTop = [topLeft.items.length > 0, topRight.items.length > 0].filter(Boolean).length;
-  const soloTopMode = nonEmptyTop === 1;
-  const baseTopColWidth = soloTopMode ? Math.min(safeW * 0.72, (safeW - baseTopGap) / 2 * 1.35) : (safeW - baseTopGap) / 2;
-  const baseBottomWidth = Math.min(safeW * 0.82, Math.max(baseTopColWidth * 1.12, baseTopColWidth * 1.28));
+  const baseTopColWidth = (safeW - baseTopGap) / 2;
+  const baseBottomWidth = Math.min(safeW * 0.78, Math.max(baseTopColWidth * 1.18, baseTopColWidth * 1.34));
 
   const topGroups = [topLeft, topRight].map(col => {
     const blocks = createBlocks(col.items).map(block => {
-      const measured = measureBlock(block, baseTopColWidth, settings.defaultGap);
+      const measured = measureBlock(block, baseTopColWidth);
       return { items: block, totalHeight: measured.totalHeight };
     });
     const virtualHeight = blocks.reduce((sum, block, idx) => sum + block.totalHeight + (idx < blocks.length - 1 ? settings.defaultGap : 0), 0);
@@ -889,7 +889,7 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   });
 
   const bottomBlocks = createBlocks(bottomCol.items).map(block => {
-    const measured = measureBlock(block, baseBottomWidth, settings.defaultGap);
+    const measured = measureBlock(block, baseBottomWidth);
     return { items: block, totalHeight: measured.totalHeight };
   });
   const bottomVirtualHeight = bottomBlocks.reduce((sum, block, idx) => sum + block.totalHeight + (idx < bottomBlocks.length - 1 ? settings.defaultGap : 0), 0);
@@ -903,14 +903,15 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const bottomWidth = baseBottomWidth * scale;
   const rowGap = settings.defaultGap * scale;
 
-  const topContentWidth = soloTopMode ? topColWidth : (topColWidth * 2 + topGap);
+  const nonEmptyTop = [topLeft.items.length > 0, topRight.items.length > 0].filter(Boolean).length;
+  const topContentWidth = nonEmptyTop <= 1 ? topColWidth : topColWidth * 2 + topGap;
   const topStartX = safeX + (safeW - topContentWidth) / 2;
   const topY = safeY + (safeH - totalVirtualHeight * scale) / 2;
 
   [topLeft, topRight].forEach((col, index) => {
     const data = topGroups[index];
     if (!data.blocks.length) return;
-    const x = soloTopMode ? topStartX : topStartX + index * (topColWidth + topGap);
+    const x = nonEmptyTop <= 1 ? topStartX : topStartX + index * (topColWidth + topGap);
     const colDrawHeight = data.virtualHeight * scale;
     let y = topY;
     if (col.align === 'center') y = topY + (topSectionHeight * scale - colDrawHeight) / 2;
@@ -1383,32 +1384,22 @@ function buildPlaceholder(cardRect) {
   return ph;
 }
 
-
 function buildOverlay(card, rect) {
-  const overlay = document.createElement('div');
-  overlay.className = 'kanban-item kanban-drag-overlay';
-  const thumbSrc = card.querySelector('.kanban-thumb')?.getAttribute('src') || '';
-  const title = card.querySelector('.kanban-item-title')?.textContent?.trim() || '圖片項目';
-  const sub = card.querySelector('.kanban-item-sub')?.textContent?.trim() || '';
-  overlay.innerHTML = `
-    <div class="kanban-card-frame">
-      <div class="kanban-thumb-shell">${thumbSrc ? `<img class="kanban-thumb" src="${thumbSrc}" alt="thumb">` : ''}</div>
-      <div class="kanban-card-main">
-        <div class="kanban-item-title">${title}</div>
-        <div class="kanban-item-sub">${sub}</div>
-      </div>
-    </div>
-  `;
+  const overlay = card.cloneNode(true);
+  overlay.classList.add('kanban-drag-overlay');
+  overlay.classList.remove('is-drag-source','drop-before','drop-after','nogap');
   overlay.style.position = 'fixed';
   overlay.style.left = '0px';
   overlay.style.top = '0px';
-  overlay.style.width = `${Math.min(Math.max(220, Math.round(rect.width)), 300)}px`;
+  overlay.style.width = `${Math.round(rect.width)}px`;
+  overlay.style.height = `${Math.round(rect.height)}px`;
   overlay.style.boxSizing = 'border-box';
   overlay.style.pointerEvents = 'none';
   overlay.style.zIndex = '99999';
   overlay.style.margin = '0';
-  overlay.style.opacity = '0.97';
+  overlay.style.opacity = '0.96';
   overlay.style.transform = 'translate3d(-9999px,-9999px,0)';
+  overlay.querySelectorAll('.kanban-card-actions, .kanban-drag-handle').forEach(el => el.remove());
   return overlay;
 }
 
@@ -1565,7 +1556,6 @@ function finalizeDrag() {
 }
 
 function resetDragRuntime() {
-  const prevSourceId = dragRuntime.sourceId;
   dragRuntime.pointerId = null;
   dragRuntime.sourceId = null;
   dragRuntime.sourceCol = -1;
@@ -1578,7 +1568,7 @@ function resetDragRuntime() {
   dragRuntime.placeholder?.remove();
   dragRuntime.overlay = null;
   dragRuntime.placeholder = null;
-  const src = prevSourceId ? document.querySelector(`.kanban-item[data-id="${prevSourceId}"]`) : null;
+  const src = dragRuntime.sourceId ? document.querySelector(`.kanban-item[data-id="${dragRuntime.sourceId}"]`) : null;
   if (src) src.style.visibility = '';
   clearDragClasses();
 }
