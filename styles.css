@@ -687,3 +687,71 @@ input[type="range"]{accent-color:#2563eb}
 /* v4 palette rows unified */
 .shared-color-row.palette-grid, #patternPalette.palette-grid{max-width:100%;white-space:nowrap;}
 #patternPalette.palette-grid .color-picker, #patternPalette.palette-grid .swatch{width:2.6rem !important;height:2.6rem !important;min-width:2.6rem !important;flex:0 0 2.6rem !important;}
+
+
+/* v6 palette + drag + layout repairs */
+#globalBgPalette, #innerBgPalette, #patternPalette,
+.shared-color-row.palette-scroll-row{
+  display:flex !important;
+  flex-wrap:nowrap !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  gap:.65rem !important;
+  align-items:center !important;
+  white-space:nowrap !important;
+  max-width:100% !important;
+  padding-bottom:.25rem !important;
+  scrollbar-width:none !important;
+}
+#globalBgPalette::-webkit-scrollbar, #innerBgPalette::-webkit-scrollbar, #patternPalette::-webkit-scrollbar,
+.shared-color-row.palette-scroll-row::-webkit-scrollbar{display:none !important;}
+#globalBgPalette .swatch, #globalBgPalette .color-picker,
+#innerBgPalette .swatch, #innerBgPalette .color-picker,
+#patternPalette .swatch, #patternPalette .color-picker,
+.shared-color-row.palette-scroll-row .swatch,
+.shared-color-row.palette-scroll-row .color-picker{
+  width:2.75rem !important;
+  height:2.75rem !important;
+  min-width:2.75rem !important;
+  flex:0 0 2.75rem !important;
+  aspect-ratio:1/1 !important;
+}
+@media (max-width: 640px){
+  #globalBgPalette .swatch, #globalBgPalette .color-picker,
+  #innerBgPalette .swatch, #innerBgPalette .color-picker,
+  #patternPalette .swatch, #patternPalette .color-picker,
+  .shared-color-row.palette-scroll-row .swatch,
+  .shared-color-row.palette-scroll-row .color-picker{
+    width:2.55rem !important;
+    height:2.55rem !important;
+    min-width:2.55rem !important;
+    flex-basis:2.55rem !important;
+  }
+}
+.kanban-drag-overlay{
+  width:auto !important;
+  height:auto !important;
+  min-width:220px !important;
+  max-width:min(82vw, 300px) !important;
+  border-radius:1rem !important;
+  overflow:hidden !important;
+  background:#fff !important;
+  border:1px solid rgba(148,163,184,.28) !important;
+  box-shadow:0 16px 36px rgba(15,23,42,.18) !important;
+}
+.kanban-drag-overlay .kanban-card-frame{
+  display:flex !important;
+  align-items:center !important;
+  gap:.75rem !important;
+  padding:.75rem !important;
+}
+.kanban-drag-overlay .kanban-card-main{min-width:0 !important; flex:1 1 auto !important;}
+.kanban-drag-overlay .kanban-item-title,
+.kanban-drag-overlay .kanban-item-sub{white-space:normal !important; overflow:hidden !important;}
+.kanban-drag-overlay .kanban-item-sub{display:block !important; font-size:.72rem !important; line-height:1.2 !important; max-height:2.4em !important;}
+.kanban-drag-overlay .kanban-card-actions,
+.kanban-drag-overlay .kanban-drag-handle,
+.kanban-drag-overlay .kanban-chip-row{display:none !important;}
+.kanban-drag-overlay .kanban-thumb-shell{width:56px !important; height:56px !important; flex:0 0 56px !important;}
+.kanban-drag-overlay .kanban-thumb{object-fit:contain !important;}
+.kanban-item.is-drag-source{opacity:.14 !important;}
