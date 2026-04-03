@@ -480,7 +480,7 @@ function getSettings() {
 
 
 function getColumnGapValue() {
-  return Math.max(0, Number(els.columnGap?.value || 24));
+  return Math.max(0, Number(els.columnGap?.value || 12));
 }
 
 function drawBackgroundAndFrame(ctx, s) {
@@ -910,12 +910,21 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const topRight = columnsState[1] || { items: [], align: 'top' };
   const bottomCol = columnsState[2] || { items: [], align: 'top' };
 
-  const requestedGap = Math.max(0, Number(settings.columnGap ?? 24));
-  const baseTopGap = Math.min(requestedGap, safeW * 0.10);
+  const requestedGap = Math.max(0, Number(settings.columnGap ?? 12));
+  const baseTopGap = Math.min(requestedGap, safeW * 0.06);
   const nonEmptyTop = [topLeft.items.length > 0, topRight.items.length > 0].filter(Boolean).length;
   const soloTopMode = nonEmptyTop === 1;
-  const baseTopColWidth = soloTopMode ? Math.min(safeW * 0.72, (safeW - baseTopGap) / 2 * 1.35) : (safeW - baseTopGap) / 2;
-  const baseBottomWidth = Math.min(safeW * 0.82, Math.max(baseTopColWidth * 1.12, baseTopColWidth * 1.28));
+
+  const normalTopWidth = (safeW - baseTopGap) / 2;
+  const baseTopColWidth = soloTopMode
+    ? Math.min(safeW * 0.74, normalTopWidth * 1.18)
+    : Math.min(normalTopWidth, safeW * 0.455);
+
+  // Make bottom only slightly larger than each top image, avoiding dramatic size jumps.
+  const baseBottomWidth = Math.min(
+    safeW * 0.66,
+    Math.max(baseTopColWidth * 1.04, baseTopColWidth * 1.08)
+  );
 
   const topGroups = [topLeft, topRight].map(col => {
     const blocks = createBlocks(col.items).map(block => {
@@ -930,7 +939,7 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
     const measured = measureBlock(block, baseBottomWidth, settings.defaultGap);
     return { items: block, totalHeight: measured.totalHeight };
   });
-  const bottomVirtualHeight = bottomBlocks.reduce((sum, block, idx) => sum + block.totalHeight + (idx < bottomBlocks.length - 1 ? settings.defaultGap : 0), 0);
+  const bottomVirtualHeight = bottomBlocks.reduce((sum, block, idx) => sum + block.totalHeight + (idx < blocks.length - 1 ? settings.defaultGap : 0), 0);
 
   const topSectionHeight = Math.max(topGroups[0].virtualHeight, topGroups[1].virtualHeight, 0);
   const totalVirtualHeight = topSectionHeight + (bottomVirtualHeight > 0 ? settings.defaultGap : 0) + bottomVirtualHeight;
@@ -1313,7 +1322,7 @@ async function loadWorkspace() {
     els.layoutMode.value = workspace.settings?.layoutMode || '3';
     initColumnsForLayout(els.layoutMode.value);
     els.defaultGap.value = workspace.settings?.defaultGap ?? 12;
-    els.columnGap.value = workspace.settings?.columnGap ?? 24;
+    els.columnGap.value = workspace.settings?.columnGap ?? 12;
     syncSpacingControls();
     els.frameStyle.value = workspace.settings?.frameStyle || 'editorial-luxe';
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
@@ -1353,7 +1362,7 @@ async function clearAll() {
     currentFilename = defaultFilename();
     els.layoutMode.value = '3';
     initColumnsForLayout('3');
-    els.defaultGap.value = 12; els.columnGap.value = 24; syncSpacingControls();
+    els.defaultGap.value = 12; els.columnGap.value = 12; syncSpacingControls();
     els.frameStyle.value = 'editorial-luxe';
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';
