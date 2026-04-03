@@ -912,19 +912,9 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
 
   const requestedGap = Math.max(0, Number(settings.columnGap ?? 12));
   const baseTopGap = Math.min(requestedGap, safeW * 0.06);
-  const nonEmptyTop = [topLeft.items.length > 0, topRight.items.length > 0].filter(Boolean).length;
-  const soloTopMode = nonEmptyTop === 1;
-
-  const normalTopWidth = (safeW - baseTopGap) / 2;
-  const baseTopColWidth = soloTopMode
-    ? Math.min(safeW * 0.74, normalTopWidth * 1.18)
-    : Math.min(normalTopWidth, safeW * 0.455);
-
-  // Make bottom only slightly larger than each top image, avoiding dramatic size jumps.
-  const baseBottomWidth = Math.min(
-    safeW * 0.66,
-    Math.max(baseTopColWidth * 1.04, baseTopColWidth * 1.08)
-  );
+  const soloTopMode = !topLeft.items.length || !topRight.items.length;
+  const baseTopColWidth = soloTopMode ? Math.min(safeW * 0.72, safeW) : (safeW - baseTopGap) / 2;
+  const baseBottomWidth = Math.min(safeW * 0.72, Math.max(baseTopColWidth, safeW * 0.56));
 
   const topGroups = [topLeft, topRight].map(col => {
     const blocks = createBlocks(col.items).map(block => {
@@ -939,33 +929,46 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
     const measured = measureBlock(block, baseBottomWidth, settings.defaultGap);
     return { items: block, totalHeight: measured.totalHeight };
   });
-  const bottomVirtualHeight = bottomBlocks.reduce((sum, block, idx) => sum + block.totalHeight + (idx < blocks.length - 1 ? settings.defaultGap : 0), 0);
+  const bottomVirtualHeight = bottomBlocks.reduce((sum, block, idx) => sum + block.totalHeight + (idx < bottomBlocks.length - 1 ? settings.defaultGap : 0), 0);
 
-  const topSectionHeight = Math.max(topGroups[0].virtualHeight, topGroups[1].virtualHeight, 0);
-  const totalVirtualHeight = topSectionHeight + (bottomVirtualHeight > 0 ? settings.defaultGap : 0) + bottomVirtualHeight;
-  const scale = Math.min(1, safeH / Math.max(totalVirtualHeight, 1));
+  const baseTopSectionHeight = Math.max(topGroups[0].virtualHeight, topGroups[1].virtualHeight, 1);
+  const baseBottomSectionHeight = Math.max(bottomVirtualHeight, 1);
 
-  const topGap = baseTopGap * scale;
-  const topColWidth = baseTopColWidth * scale;
-  const bottomWidth = baseBottomWidth * scale;
-  const rowGap = settings.defaultGap * scale;
+  // Enforce 1:1 top/bottom rendered heights.
+  const sectionGap = settings.defaultGap;
+  const availableForSections = Math.max(0, safeH - sectionGap);
+  const targetSectionHeight = availableForSections / 2;
+
+  const topScale = Math.min(1, targetSectionHeight / baseTopSectionHeight);
+  const bottomScale = Math.min(1, targetSectionHeight / baseBottomSectionHeight);
+
+  const topColWidth = baseTopColWidth * topScale;
+  const topGap = baseTopGap * topScale;
+  const bottomWidth = baseBottomWidth * bottomScale;
+  const topRowGap = settings.defaultGap * topScale;
+  const bottomRowGap = settings.defaultGap * bottomScale;
+  const drawSectionGap = sectionGap;
+
+  const renderedTopSectionHeight = Math.max(topGroups[0].virtualHeight * topScale, topGroups[1].virtualHeight * topScale, 0);
+  const renderedBottomSectionHeight = bottomVirtualHeight * bottomScale;
+  const totalRenderedHeight = renderedTopSectionHeight + drawSectionGap + renderedBottomSectionHeight;
+  const topY = safeY + (safeH - totalRenderedHeight) / 2;
 
   const topContentWidth = soloTopMode ? topColWidth : (topColWidth * 2 + topGap);
   const topStartX = safeX + (safeW - topContentWidth) / 2;
-  const topY = safeY + (safeH - totalVirtualHeight * scale) / 2;
 
   [topLeft, topRight].forEach((col, index) => {
     const data = topGroups[index];
     if (!data.blocks.length) return;
     const x = soloTopMode ? topStartX : topStartX + index * (topColWidth + topGap);
-    const colDrawHeight = data.virtualHeight * scale;
+    const colDrawHeight = data.virtualHeight * topScale;
     let y = topY;
-    if (col.align === 'center') y = topY + (topSectionHeight * scale - colDrawHeight) / 2;
-    if (col.align === 'bottom') y = topY + (topSectionHeight * scale - colDrawHeight);
+    if (col.align === 'center') y = topY + (renderedTopSectionHeight - colDrawHeight) / 2;
+    if (col.align === 'bottom') y = topY + (renderedTopSectionHeight - colDrawHeight);
 
     data.blocks.forEach((blockData, blockIdx) => {
-      const blockHeight = blockData.totalHeight * scale;
-      if (settings.whiteBorderEnabled && blockData.items.length) drawBlockBg(ctx, x, y, topColWidth, blockHeight, scale);
+      const blockHeight = blockData.totalHeight * topScale;
+      if (settings.whiteBorderEnabled && blockData.items.length) drawBlockBg(ctx, x, y, topColWidth, blockHeight, topScale);
       blockData.items.forEach(item => {
         const imgData = getImageNaturalSize(item.id);
         if (!imgData) return;
@@ -974,17 +977,15 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
         drawImageRounded(ctx, imgData.img, x, y, drawW, drawH, item.noGapBelow ? 8 : 18);
         y += drawH;
       });
-      if (blockIdx < data.blocks.length - 1) y += rowGap;
+      if (blockIdx < data.blocks.length - 1) y += topRowGap;
     });
   });
 
   const bottomX = safeX + (safeW - bottomWidth) / 2;
-  let bottomY = topY + topSectionHeight * scale;
-  if (bottomVirtualHeight > 0) bottomY += rowGap;
-
+  let bottomY = topY + renderedTopSectionHeight + drawSectionGap;
   bottomBlocks.forEach((blockData, blockIdx) => {
-    const blockHeight = blockData.totalHeight * scale;
-    if (settings.whiteBorderEnabled && blockData.items.length) drawBlockBg(ctx, bottomX, bottomY, bottomWidth, blockHeight, scale);
+    const blockHeight = blockData.totalHeight * bottomScale;
+    if (settings.whiteBorderEnabled && blockData.items.length) drawBlockBg(ctx, bottomX, bottomY, bottomWidth, blockHeight, bottomScale);
     blockData.items.forEach(item => {
       const imgData = getImageNaturalSize(item.id);
       if (!imgData) return;
@@ -993,7 +994,7 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
       drawImageRounded(ctx, imgData.img, bottomX, bottomY, drawW, drawH, item.noGapBelow ? 8 : 18);
       bottomY += drawH;
     });
-    if (blockIdx < bottomBlocks.length - 1) bottomY += rowGap;
+    if (blockIdx < bottomBlocks.length - 1) bottomY += bottomRowGap;
   });
 }
 
@@ -1290,9 +1291,9 @@ function buildWorkspacePayload() {
     images[id] = { previewData: item.previewData || item.thumb || item.originalData, originalData: item.originalData, type: item.type };
   });
   return {
-    version: 2,
+    version: 3,
     savedAt: Date.now(),
-    settings: { ...getSettings(), filename: currentFilename, isCustomFilename },
+    settings: { ...getSettings(), rawDefaultGap: Number(els.defaultGap?.value || 12), rawColumnGap: Number(els.columnGap?.value || 12), filename: currentFilename, isCustomFilename },
     columnsState: structuredClone(columnsState),
     images
   };
@@ -1321,8 +1322,8 @@ async function loadWorkspace() {
     if (!workspace) { drawTextCardPreview(); updateSaveStatus('idle'); return; }
     els.layoutMode.value = workspace.settings?.layoutMode || '3';
     initColumnsForLayout(els.layoutMode.value);
-    els.defaultGap.value = workspace.settings?.defaultGap ?? 12;
-    els.columnGap.value = workspace.settings?.columnGap ?? 12;
+    els.defaultGap.value = workspace.settings?.rawDefaultGap ?? 12;
+    els.columnGap.value = workspace.settings?.rawColumnGap ?? 12;
     syncSpacingControls();
     els.frameStyle.value = workspace.settings?.frameStyle || 'editorial-luxe';
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
