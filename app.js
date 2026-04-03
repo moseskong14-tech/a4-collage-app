@@ -171,6 +171,16 @@ function getEffectiveColumnGap(raw) {
   return gap === 0 ? 0 : Math.round(gap * 1.2 + 4);
 }
 
+function reverseRowGap(effective) {
+  const value = Math.max(0, Number(effective || 0));
+  return value <= 0 ? 0 : Math.round((value - 2) / 1.18);
+}
+
+function reverseColumnGap(effective) {
+  const value = Math.max(0, Number(effective || 0));
+  return value <= 0 ? 0 : Math.round((value - 4) / 1.2);
+}
+
 function stateChanged() {
   throttledDrawCanvas();
   triggerAutoSave();
@@ -222,7 +232,8 @@ async function handleImageUpload(e) {
   try {
     for (const file of files) {
       const id = `img_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-      const originalData = await fileToDataURL(file);
+      const rawData = await fileToDataURL(file);
+      const originalData = await compressImage(rawData, 2480, 0.92);
       const previewData = await createPreview(originalData, 520, 0.94);
       const img = await loadImage(originalData);
       imageRegistry[id] = { img, previewData, originalData, type: 'image' };
@@ -256,6 +267,20 @@ function loadImage(src) {
 async function createPreview(src, maxSize = 520, quality = 0.94) {
   const img = await loadImage(src);
   const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+async function compressImage(src, maxSize = 2480, quality = 0.92) {
+  const img = await loadImage(src);
+  const needResize = img.width > maxSize || img.height > maxSize;
+  const scale = needResize ? maxSize / Math.max(img.width, img.height) : 1;
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(img.width * scale));
   canvas.height = Math.max(1, Math.round(img.height * scale));
@@ -326,8 +351,6 @@ function renderKanban() {
       list.appendChild(card);
     });
 
-    const isMobileBoard = window.matchMedia('(max-width: 1023px)').matches;
-    // removed Sortable
   });
 
   document.querySelectorAll('.align-btn').forEach(btn => btn.addEventListener('click', () => cycleAlign(Number(btn.dataset.col))));
@@ -336,57 +359,10 @@ function renderKanban() {
   document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => openImageTextEditor(btn.dataset.id)));
 }
 
-function clearDropIndicators() {
-  document.body.classList.remove('kanban-drag-active');
-  document.querySelectorAll('.kanban-list').forEach(list => list.classList.remove('is-drop-target'));
-  document.querySelectorAll('.kanban-item').forEach(item => item.classList.remove('drop-before','drop-after'));
-}
 
-function handleSortChoose(evt) {
-  document.body.classList.add('kanban-drag-active','kanban-sort-lock','kanban-actually-dragging');
-  evt.item.style.willChange = 'transform';
-  evt.item.classList.add('is-lifted');
-}
 
-function handleSortStart(evt) {
-  document.body.classList.add('kanban-drag-active','kanban-sort-lock','kanban-actually-dragging');
-  evt.item.style.willChange = 'transform';
-  evt.item.classList.add('is-lifted');
-  const rect = evt.item.getBoundingClientRect();
-  evt.item.style.width = `${Math.round(rect.width)}px`;
-}
 
-function handleSortMove(evt) {
-  clearDropIndicators();
-  document.body.classList.add('kanban-drag-active');
-  if (evt.to) evt.to.classList.add('is-drop-target');
-  const related = evt.related;
-  if (related && related.classList?.contains('kanban-item')) {
-    related.classList.add(evt.willInsertAfter ? 'drop-after' : 'drop-before');
-  }
-}
 
-function handleSortEnd(evt) {
-  clearDropIndicators();
-  document.body.classList.remove('kanban-sort-lock','kanban-actually-dragging');
-  evt.item?.classList.remove('is-lifted');
-  evt.item?.style.removeProperty('width');
-  evt.item?.style.removeProperty('will-change');
-  const fromCol = Number(evt.from.dataset.col);
-  const toCol = Number(evt.to.dataset.col);
-  if (Number.isNaN(fromCol) || Number.isNaN(toCol) || evt.oldIndex == null || evt.newIndex == null) {
-    renderKanban();
-    return;
-  }
-  const [moved] = columnsState[fromCol].items.splice(evt.oldIndex, 1);
-  if (!moved) {
-    renderKanban();
-    return;
-  }
-  columnsState[toCol].items.splice(evt.newIndex, 0, moved);
-  renderKanban();
-  stateChanged();
-}
 function alignLabel(align) { return align === 'top' ? '靠上 ⬆️' : align === 'center' ? '置中 ↕️' : '靠下 ⬇️'; }
 function cycleAlign(colIndex) {
   const seq = ['top','center','bottom'];
@@ -439,10 +415,14 @@ function drawCanvas() {
 }
 
 function getSettings() {
+  const rawDefaultGap = Number(els.defaultGap.value || 0);
+  const rawColumnGap = getColumnGapValue();
   return {
     layoutMode: els.layoutMode.value,
-    defaultGap: getEffectiveRowGap(els.defaultGap.value),
-    columnGap: getEffectiveColumnGap(getColumnGapValue()),
+    defaultGap: getEffectiveRowGap(rawDefaultGap),
+    columnGap: getEffectiveColumnGap(rawColumnGap),
+    rawDefaultGap,
+    rawColumnGap,
     frameStyle: els.frameStyle.value,
     globalBgColor: els.globalBgColor.value,
     innerBgColor: els.innerBgColor.value,
@@ -860,6 +840,12 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   });
 }
 
+function getImageNaturalSize(id) {
+  const reg = imageRegistry[id];
+  if (!reg || !reg.img) return null;
+  return { img: reg.img, ratio: reg.img.height / reg.img.width };
+}
+
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const topLeft = columnsState[0] || { items: [], align: 'top' };
   const topRight = columnsState[1] || { items: [], align: 'top' };
@@ -966,6 +952,17 @@ function roundRect(ctx, x, y, w, h, r) {
 
 function openModal(el) { el.classList.remove('hidden'); }
 function closeModal(el) { el.classList.add('hidden'); }
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop').forEach(modal => modal.classList.add('hidden'));
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const backdrop = e.target.closest('.modal-backdrop');
+  if (backdrop && e.target === backdrop) backdrop.classList.add('hidden');
+});
 
 function drawMultiLineTextOnCanvas(ctx, text, x, y, maxWidth, lineHeight, alignH='center', alignV='center') {
   const words = text.split('\n');
@@ -1266,8 +1263,8 @@ async function loadWorkspace() {
     if (!workspace) { drawTextCardPreview(); updateSaveStatus('idle'); return; }
     els.layoutMode.value = workspace.settings?.layoutMode || '3';
     initColumnsForLayout(els.layoutMode.value);
-    els.defaultGap.value = workspace.settings?.defaultGap ?? 12;
-    els.columnGap.value = workspace.settings?.columnGap ?? 24;
+    els.defaultGap.value = workspace.settings?.rawDefaultGap ?? reverseRowGap(workspace.settings?.defaultGap ?? 12);
+    els.columnGap.value = workspace.settings?.rawColumnGap ?? reverseColumnGap(workspace.settings?.columnGap ?? 24);
     syncSpacingControls();
     els.frameStyle.value = workspace.settings?.frameStyle || 'editorial-luxe';
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
@@ -1376,21 +1373,32 @@ function buildPlaceholder(cardRect) {
 }
 
 function buildOverlay(card, rect) {
-  const overlay = card.cloneNode(true);
-  overlay.classList.add('kanban-drag-overlay');
-  overlay.classList.remove('is-drag-source','drop-before','drop-after','nogap');
+  const thumb = card.querySelector('.kanban-thumb')?.getAttribute('src') || '';
+  const title = card.querySelector('.kanban-item-title')?.textContent?.trim() || '圖片項目';
+  const typeChip = card.querySelector('.kanban-type-chip')?.textContent?.trim() || '圖片';
+  const overlay = document.createElement('div');
+  overlay.className = 'kanban-drag-overlay';
   overlay.style.position = 'fixed';
   overlay.style.left = '0px';
   overlay.style.top = '0px';
   overlay.style.width = `${Math.round(rect.width)}px`;
   overlay.style.height = `${Math.round(rect.height)}px`;
-  overlay.style.boxSizing = 'border-box';
   overlay.style.pointerEvents = 'none';
   overlay.style.zIndex = '99999';
   overlay.style.margin = '0';
   overlay.style.opacity = '0.96';
+  overlay.style.boxSizing = 'border-box';
   overlay.style.transform = 'translate3d(-9999px,-9999px,0)';
-  overlay.querySelectorAll('.kanban-card-actions, .kanban-drag-handle').forEach(el => el.remove());
+  overlay.innerHTML = `
+    <div class="kanban-card-frame kanban-overlay-frame">
+      <div class="kanban-drag-content kanban-overlay-content">
+        <div class="kanban-thumb-shell"><img class="kanban-thumb" src="${thumb}" alt="thumb"></div>
+        <div class="kanban-card-main">
+          <div class="kanban-chip-row"><span class="kanban-type-chip">${typeChip}</span><span class="kanban-sub-chip">拖移中</span></div>
+          <div class="kanban-item-title">${title}</div>
+        </div>
+      </div>
+    </div>`;
   return overlay;
 }
 
@@ -1547,6 +1555,14 @@ function finalizeDrag() {
 }
 
 function resetDragRuntime() {
+  if (dragRuntime.sourceId) {
+    const src = document.querySelector(`.kanban-item[data-id="${dragRuntime.sourceId}"]`);
+    if (src) src.style.visibility = '';
+  }
+
+  dragRuntime.overlay?.remove();
+  dragRuntime.placeholder?.remove();
+
   dragRuntime.pointerId = null;
   dragRuntime.sourceId = null;
   dragRuntime.sourceCol = -1;
@@ -1555,12 +1571,8 @@ function resetDragRuntime() {
   dragRuntime.targetIndex = -1;
   dragRuntime.active = false;
   dragRuntime.moved = false;
-  dragRuntime.overlay?.remove();
-  dragRuntime.placeholder?.remove();
   dragRuntime.overlay = null;
   dragRuntime.placeholder = null;
-  const src = dragRuntime.sourceId ? document.querySelector(`.kanban-item[data-id="${dragRuntime.sourceId}"]`) : null;
-  if (src) src.style.visibility = '';
   clearDragClasses();
 }
 

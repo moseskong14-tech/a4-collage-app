@@ -687,3 +687,77 @@ input[type="range"]{accent-color:#2563eb}
 /* v4 palette rows unified */
 .shared-color-row.palette-grid, #patternPalette.palette-grid{max-width:100%;white-space:nowrap;}
 #patternPalette.palette-grid .color-picker, #patternPalette.palette-grid .swatch{width:2.6rem !important;height:2.6rem !important;min-width:2.6rem !important;flex:0 0 2.6rem !important;}
+
+
+/* repair guide + palette/drag fixes */
+.shared-color-row.palette-grid,
+#globalBgPalette.palette-grid,
+#innerBgPalette.palette-grid,
+#patternPalette.palette-grid {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  gap: .72rem !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  padding: .1rem 0 .3rem !important;
+  scrollbar-width: none !important;
+}
+.shared-color-row.palette-grid::-webkit-scrollbar,
+#globalBgPalette.palette-grid::-webkit-scrollbar,
+#innerBgPalette.palette-grid::-webkit-scrollbar,
+#patternPalette.palette-grid::-webkit-scrollbar { display: none !important; }
+.shared-color-row.palette-grid .swatch,
+.shared-color-row.palette-grid .color-picker,
+#patternPalette.palette-grid .swatch,
+#patternPalette.palette-grid .color-picker {
+  width: 2.7rem !important;
+  height: 2.7rem !important;
+  min-width: 2.7rem !important;
+  flex: 0 0 2.7rem !important;
+  border-radius: 999px !important;
+}
+@media (max-width: 640px) {
+  .shared-color-row.palette-grid,
+  #globalBgPalette.palette-grid,
+  #innerBgPalette.palette-grid,
+  #patternPalette.palette-grid { gap: .58rem !important; }
+  .shared-color-row.palette-grid .swatch,
+  .shared-color-row.palette-grid .color-picker,
+  #patternPalette.palette-grid .swatch,
+  #patternPalette.palette-grid .color-picker {
+    width: 2.45rem !important;
+    height: 2.45rem !important;
+    min-width: 2.45rem !important;
+    flex-basis: 2.45rem !important;
+  }
+}
+.kanban-drag-overlay {
+  overflow: hidden !important;
+  contain: layout paint !important;
+  border-radius: 1.15rem !important;
+  background: #fff !important;
+  border: 1px solid rgba(148,163,184,.3) !important;
+  box-shadow: 0 18px 34px rgba(15,23,42,.18) !important;
+}
+.kanban-drag-overlay .kanban-overlay-frame {
+  display: block !important;
+  padding: .55rem !important;
+}
+.kanban-drag-overlay .kanban-overlay-content {
+  min-height: auto !important;
+  display: grid !important;
+  grid-template-columns: 52px minmax(0,1fr) !important;
+  align-items: center !important;
+  gap: .55rem !important;
+  padding: .35rem .4rem !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 1rem !important;
+  background: linear-gradient(180deg,#fff,#f8fafc) !important;
+}
+.kanban-drag-overlay .kanban-thumb-shell { width: 52px !important; height: 52px !important; min-width: 52px !important; }
+.kanban-drag-overlay .kanban-thumb { object-fit: contain !important; }
+.kanban-drag-overlay .kanban-item-sub { display: none !important; }
+.kanban-drag-overlay .kanban-card-main { min-width: 0 !important; }
+.kanban-drag-overlay .kanban-item-title { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
