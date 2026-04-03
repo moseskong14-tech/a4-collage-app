@@ -905,65 +905,59 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   });
 }
 
+
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const topLeft = columnsState[0] || { items: [], align: 'top' };
   const topRight = columnsState[1] || { items: [], align: 'top' };
   const bottomCol = columnsState[2] || { items: [], align: 'top' };
 
-  const requestedGap = Math.max(0, Number(settings.columnGap ?? 12));
-  const baseTopGap = Math.min(requestedGap, safeW * 0.06);
-  const rowGap = Math.max(0, Number(settings.defaultGap || 0));
+  const rawGap = Math.max(0, Number(settings.defaultGap || 0));
+  const rawColGap = Math.max(0, Number(settings.columnGap || 0));
+  const halfGap = rawGap > 0 ? rawGap / 2 : 0;
 
-  // Strict 1:1 vertical split for 上2下1
-  const topZoneHeight = safeH * 0.5;
-  const bottomZoneHeight = safeH * 0.5;
+  // Strict 1:1 vertical split for 上2下1, with the row gap centered between zones.
+  const zoneHeight = Math.max(1, (safeH - rawGap) / 2);
+  const topZoneY = safeY;
+  const bottomZoneY = safeY + zoneHeight + rawGap;
 
-  const nonEmptyTop = [topLeft.items.length > 0, topRight.items.length > 0].filter(Boolean).length;
-  const soloTopMode = nonEmptyTop === 1;
+  const topHasLeft = topLeft.items.length > 0;
+  const topHasRight = topRight.items.length > 0;
+  const soloTopMode = (topHasLeft ? 1 : 0) + (topHasRight ? 1 : 0) === 1;
 
-  const tentativeTopColWidth = soloTopMode
-    ? safeW * 0.72
-    : Math.min((safeW - baseTopGap) / 2, safeW * 0.455);
-
-  const measureColHeight = (items, width) => {
-    const blocks = createBlocks(items).map(block => measureBlock(block, width, rowGap));
-    const height = blocks.reduce((sum, b, i) => sum + b.totalHeight + (i < blocks.length - 1 ? rowGap : 0), 0);
+  const measureColumn = (items, width) => {
+    const blocks = createBlocks(items).map(block => measureBlock(block, width, rawGap));
+    const height = blocks.reduce((sum, b, i) => sum + b.totalHeight + (i < blocks.length - 1 ? rawGap : 0), 0);
     return { blocks, height };
   };
 
-  const topLeftMeasured = measureColHeight(topLeft.items, tentativeTopColWidth);
-  const topRightMeasured = measureColHeight(topRight.items, tentativeTopColWidth);
-  const tallestTopHeight = Math.max(topLeftMeasured.height, topRightMeasured.height, 1);
-  const topScale = Math.min(1, topZoneHeight / tallestTopHeight);
-  const topColWidth = tentativeTopColWidth * topScale;
+  // Top area widths
+  const baseTopGap = soloTopMode ? 0 : Math.min(rawColGap, safeW * 0.08);
+  const baseTopWidth = soloTopMode ? Math.min(safeW * 0.72, safeW) : (safeW - baseTopGap) / 2;
+
+  const topLeftMeasured = measureColumn(topLeft.items, baseTopWidth);
+  const topRightMeasured = measureColumn(topRight.items, baseTopWidth);
+  const topMaxHeight = Math.max(1, topLeftMeasured.height, topRightMeasured.height);
+  const topScale = Math.min(1, zoneHeight / topMaxHeight);
+
   const topGap = baseTopGap * topScale;
-
-  const topContentWidth = soloTopMode ? topColWidth : (topColWidth * 2 + topGap);
+  const topWidth = baseTopWidth * topScale;
+  const topContentWidth = soloTopMode ? topWidth : (topWidth * 2 + topGap);
   const topStartX = safeX + (safeW - topContentWidth) / 2;
-  const topStartY = safeY;
 
-  let bottomWidth = Math.min(safeW * 0.72, topColWidth * 1.08);
-  const bottomMeasured0 = measureColHeight(bottomCol.items, bottomWidth);
-  if (bottomMeasured0.height > bottomZoneHeight && bottomMeasured0.height > 0) {
-    bottomWidth *= bottomZoneHeight / bottomMeasured0.height;
-  }
-  const bottomMeasured = measureColHeight(bottomCol.items, bottomWidth);
-  const bottomContentHeight = Math.min(bottomZoneHeight, bottomMeasured.height);
-  const bottomStartX = safeX + (safeW - bottomWidth) / 2;
-  const bottomStartY = safeY + topZoneHeight;
-
-  const drawBlocksScaled = (col, startX, startY, zoneHeight, drawWidth, scaleValue) => {
-    const measured = measureColHeight(col.items, drawWidth / scaleValue);
-    const contentHeight = measured.height * scaleValue;
-    let y = startY;
-    if (col.align === 'center') y = startY + (zoneHeight - contentHeight) / 2;
-    if (col.align === 'bottom') y = startY + (zoneHeight - contentHeight);
+  const drawColumnInZone = (col, drawWidth, startX, zoneY, zoneH, scale) => {
+    const measured = measureColumn(col.items, drawWidth / scale);
+    const contentHeight = measured.height * scale;
+    let y = zoneY;
+    if (col.align === 'center') y = zoneY + (zoneH - contentHeight) / 2;
+    if (col.align === 'bottom') y = zoneY + (zoneH - contentHeight);
 
     const blocks = createBlocks(col.items);
     blocks.forEach((block, blockIndex) => {
-      const metric = measureBlock(block, drawWidth / scaleValue, rowGap);
-      const blockHeight = metric.totalHeight * scaleValue;
-      if (settings.whiteBorderEnabled && block.length) drawBlockBg(ctx, startX, y, drawWidth, blockHeight, scaleValue);
+      const metric = measureBlock(block, drawWidth / scale, rawGap);
+      const blockHeight = metric.totalHeight * scale;
+      if (settings.whiteBorderEnabled && block.length) {
+        drawBlockBg(ctx, startX, y, drawWidth, blockHeight, scale);
+      }
       block.forEach((item) => {
         const imgData = getImageNaturalSize(item.id);
         if (!imgData) return;
@@ -971,31 +965,27 @@ function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
         drawImageRounded(ctx, imgData.img, startX, y, drawWidth, drawH, item.noGapBelow ? 8 : 18);
         y += drawH;
       });
-      if (blockIndex < blocks.length - 1) y += rowGap * scaleValue;
+      if (blockIndex < blocks.length - 1) y += rawGap * scale;
     });
   };
 
-  if (topLeft.items.length) drawBlocksScaled(topLeft, topStartX, topStartY, topZoneHeight, topColWidth, topScale);
-  if (topRight.items.length) {
-    const x = soloTopMode ? topStartX : topStartX + topColWidth + topGap;
-    drawBlocksScaled(topRight, x, topStartY, topZoneHeight, topColWidth, topScale);
+  if (topHasLeft) drawColumnInZone(topLeft, topWidth, topStartX, topZoneY, zoneHeight, topScale);
+  if (topHasRight) {
+    const x = soloTopMode ? topStartX : topStartX + topWidth + topGap;
+    drawColumnInZone(topRight, topWidth, x, topZoneY, zoneHeight, topScale);
   }
 
+  // Bottom area width: scale independently to fit exactly within the lower half.
+  let baseBottomWidth = Math.min(safeW * 0.72, soloTopMode ? topWidth * 1.05 / Math.max(topScale, 0.0001) : baseTopWidth * 1.08);
+  const bottomMeasuredInitial = measureColumn(bottomCol.items, baseBottomWidth);
+  const bottomScale = bottomMeasuredInitial.height > 0 ? Math.min(1, zoneHeight / bottomMeasuredInitial.height) : 1;
+  const bottomWidth = baseBottomWidth * bottomScale;
+  const bottomMeasured = measureColumn(bottomCol.items, baseBottomWidth);
+  const bottomContentHeight = bottomMeasured.height * bottomScale;
+  const bottomX = safeX + (safeW - bottomWidth) / 2;
+
   if (bottomCol.items.length) {
-    let y = bottomStartY + Math.max(0, (bottomZoneHeight - bottomContentHeight) / 2);
-    const blocks = createBlocks(bottomCol.items);
-    blocks.forEach((block, blockIndex) => {
-      const metric = measureBlock(block, bottomWidth, rowGap);
-      if (settings.whiteBorderEnabled && block.length) drawBlockBg(ctx, bottomStartX, y, bottomWidth, metric.totalHeight, 1);
-      block.forEach((item) => {
-        const imgData = getImageNaturalSize(item.id);
-        if (!imgData) return;
-        const drawH = bottomWidth * imgData.ratio;
-        drawImageRounded(ctx, imgData.img, bottomStartX, y, bottomWidth, drawH, item.noGapBelow ? 8 : 18);
-        y += drawH;
-      });
-      if (blockIndex < blocks.length - 1) y += rowGap;
-    });
+    drawColumnInZone(bottomCol, bottomWidth, bottomX, bottomZoneY, zoneHeight, bottomScale);
   }
 }
 
