@@ -19,6 +19,21 @@ let activeImageEditId = null;
 let previewBaseImage = null;
 let previewImageBitmap = null;
 
+const FRAME_ASSET_MAP = {
+  'motif-01': { src: 'frames/motif_01.png', margin: 120, label: '夢幻蝶光' },
+  'motif-02': { src: 'frames/motif_02.png', margin: 120, label: '糖果曲線' },
+  'motif-03': { src: 'frames/motif_03.png', margin: 118, label: '甜心手繪' },
+  'motif-04': { src: 'frames/motif_04.png', margin: 120, label: '禮物派對' },
+  'motif-05': { src: 'frames/motif_05.png', margin: 118, label: '櫻花愛戀' },
+  'motif-06': { src: 'frames/motif_06.png', margin: 118, label: '蝶舞葉影' },
+  'motif-07': { src: 'frames/motif_07.png', margin: 118, label: '氣球派對' },
+  'motif-08': { src: 'frames/motif_08.png', margin: 120, label: '星霧亮粉' },
+  'motif-09': { src: 'frames/motif_09.png', margin: 118, label: '滿版愛心' },
+  'motif-10': { src: 'frames/motif_10.png', margin: 120, label: '童趣花角' },
+  'motif-11': { src: 'frames/motif_11.png', margin: 118, label: '水彩蝶葉' }
+};
+const frameAssetCache = {};
+
 const SHARED_BG_PALETTE = [
   '#ffffff', '#f8fafc', '#f1f5f9', '#e2e8f0', '#cbd5e1', '#94a3b8',
   '#ecfeff', '#cffafe', '#a5f3fc', '#e0f2fe', '#bae6fd', '#7dd3fc',
@@ -483,12 +498,37 @@ function getColumnGapValue() {
   return Math.max(0, Number(els.columnGap?.value || 12));
 }
 
+
+function getFrameAsset(style) {
+  const meta = FRAME_ASSET_MAP[style];
+  if (!meta) return null;
+  if (frameAssetCache[style]) return frameAssetCache[style];
+  const img = new Image();
+  img.onload = () => throttledDrawCanvas();
+  img.onerror = () => console.warn('Frame asset failed to load:', meta.src);
+  img.src = meta.src;
+  frameAssetCache[style] = img;
+  return img;
+}
+
+function drawImageFrameAsset(ctx, style) {
+  const meta = FRAME_ASSET_MAP[style];
+  if (!meta) return 90;
+  const img = getFrameAsset(style);
+  if (img && img.complete && img.naturalWidth) {
+    ctx.drawImage(img, 0, 0, A4_WIDTH, A4_HEIGHT);
+  }
+  return meta.margin ?? 120;
+}
+
 function drawBackgroundAndFrame(ctx, s) {
   ctx.fillStyle = s.globalBgColor;
   ctx.fillRect(0,0,A4_WIDTH,A4_HEIGHT);
   let margin = 90;
-  const floral = ['editorial-luxe','photo-mat','parchment-classic','chapel-ornament','botanical-corners','washi-soft','botanical-atelier','artdeco-ornament','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners'];
-  if (floral.includes(s.frameStyle)) {
+  const floral = ['editorial-luxe','botanical-atelier','artdeco-ornament','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners'];
+  if (FRAME_ASSET_MAP[s.frameStyle]) {
+    margin = drawImageFrameAsset(ctx, s.frameStyle);
+  } else if (floral.includes(s.frameStyle)) {
     margin = ['editorial-luxe','artdeco-ornament'].includes(s.frameStyle) ? 190 : 176;
     drawProceduralFrame(ctx, s.frameStyle, s.patternColor);
     ctx.save();
@@ -524,16 +564,6 @@ function drawProceduralFrame(ctx, style, color) {
   const randoms = Array.from({length: 18}, (_,i) => i / 18);
   if (style === 'editorial-luxe') {
     drawEditorialLuxeFrame(ctx, color);
-  } else if (style === 'photo-mat') {
-    drawPhotoMatFrame(ctx, color);
-  } else if (style === 'parchment-classic') {
-    drawParchmentClassicFrame(ctx, color);
-  } else if (style === 'chapel-ornament') {
-    drawChapelOrnamentFrame(ctx, color);
-  } else if (style === 'botanical-corners') {
-    drawBotanicalCornersFrame(ctx, color);
-  } else if (style === 'washi-soft') {
-    drawWashiSoftFrame(ctx, color);
   } else if (style === 'botanical-atelier') {
     drawBotanicalAtelierFrame(ctx, color);
   } else if (style === 'artdeco-ornament') {
@@ -825,99 +855,6 @@ function drawPaperCutCorner(ctx, x, y, sx, sy, fill, line) {
   ctx.beginPath(); ctx.moveTo(0,104); ctx.quadraticCurveTo(0,32,104,0); ctx.stroke();
   ctx.restore();
 }
-
-function drawPhotoMatFrame(ctx, color) {
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.96)';
-  roundRect(ctx, 92, 92, A4_WIDTH-184, A4_HEIGHT-184, 22); ctx.fill();
-  ctx.strokeStyle = hexToRgba(color, .55); ctx.lineWidth = 2.5;
-  roundRect(ctx, 118, 118, A4_WIDTH-236, A4_HEIGHT-236, 16); ctx.stroke();
-  ctx.strokeStyle = hexToRgba(color, .28); ctx.lineWidth = 1;
-  roundRect(ctx, 138, 138, A4_WIDTH-276, A4_HEIGHT-276, 10); ctx.stroke();
-  ctx.restore();
-}
-
-function drawParchmentClassicFrame(ctx, color) {
-  ctx.save();
-  const grad = ctx.createLinearGradient(0, 0, A4_WIDTH, A4_HEIGHT);
-  grad.addColorStop(0, 'rgba(245, 234, 208, 0.72)');
-  grad.addColorStop(.5, 'rgba(255, 248, 231, 0.25)');
-  grad.addColorStop(1, 'rgba(229, 216, 188, 0.72)');
-  ctx.fillStyle = grad;
-  roundRect(ctx, 88, 88, A4_WIDTH-176, A4_HEIGHT-176, 34); ctx.fill();
-  ctx.strokeStyle = hexToRgba(color, .42); ctx.lineWidth = 3;
-  roundRect(ctx, 96, 96, A4_WIDTH-192, A4_HEIGHT-192, 30); ctx.stroke();
-  ctx.strokeStyle = 'rgba(120,85,43,.18)';
-  for (let i=0;i<24;i++) {
-    ctx.beginPath();
-    const y = 130 + i*135;
-    ctx.moveTo(120, y);
-    ctx.bezierCurveTo(260, y-18, A4_WIDTH-260, y+18, A4_WIDTH-120, y);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function drawChapelOrnamentFrame(ctx, color) {
-  ctx.save();
-  ctx.strokeStyle = color; ctx.lineWidth = 3.2;
-  roundRect(ctx, 96, 96, A4_WIDTH-192, A4_HEIGHT-192, 26); ctx.stroke();
-  const corners = [
-    [138,138,1,1],[A4_WIDTH-138,138,-1,1],
-    [138,A4_HEIGHT-138,1,-1],[A4_WIDTH-138,A4_HEIGHT-138,-1,-1]
-  ];
-  corners.forEach(([x,y,sx,sy]) => {
-    ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy);
-    ctx.beginPath(); ctx.moveTo(0,74); ctx.quadraticCurveTo(0,20,22,0); ctx.lineTo(64,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,64); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(16,16); ctx.lineTo(42,42); ctx.moveTo(42,16); ctx.lineTo(16,42); ctx.stroke();
-    ctx.restore();
-  });
-  ctx.beginPath();
-  ctx.moveTo(A4_WIDTH/2, 108); ctx.lineTo(A4_WIDTH/2, 168);
-  ctx.moveTo(A4_WIDTH/2 - 30, 138); ctx.lineTo(A4_WIDTH/2 + 30, 138);
-  ctx.moveTo(A4_WIDTH/2, A4_HEIGHT-108); ctx.lineTo(A4_WIDTH/2, A4_HEIGHT-168);
-  ctx.moveTo(A4_WIDTH/2 - 30, A4_HEIGHT-138); ctx.lineTo(A4_WIDTH/2 + 30, A4_HEIGHT-138);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawBotanicalCornersFrame(ctx, color) {
-  ctx.save();
-  ctx.strokeStyle = hexToRgba(color,.52); ctx.lineWidth = 2.4;
-  roundRect(ctx, 102, 102, A4_WIDTH-204, A4_HEIGHT-204, 30); ctx.stroke();
-  [[152,152,1,1],[A4_WIDTH-152,152,-1,1],[152,A4_HEIGHT-152,1,-1],[A4_WIDTH-152,A4_HEIGHT-152,-1,-1]].forEach(([x,y,sx,sy], idx) => {
-    ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy);
-    for (let i=0;i<5;i++) {
-      const ox = i*18;
-      ctx.fillStyle = i % 2 ? 'rgba(134,239,172,.28)' : 'rgba(253,230,138,.28)';
-      ctx.beginPath(); ctx.ellipse(26+ox, 22+i*12, 20-i*1.5, 9-i*.7, -.6, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(22+i*12, 26+ox, 18-i*1.2, 8-i*.6, .6, 0, Math.PI*2); ctx.fill();
-    }
-    ctx.strokeStyle = hexToRgba(color,.65); ctx.beginPath();
-    ctx.moveTo(0,96); ctx.bezierCurveTo(8,44,40,14,96,0); ctx.stroke();
-    ctx.restore();
-  });
-  ctx.restore();
-}
-
-function drawWashiSoftFrame(ctx, color) {
-  ctx.save();
-  const strips = [
-    [70, 92, A4_WIDTH-140, 28, 'rgba(245, 222, 179, .55)'],
-    [92, A4_HEIGHT-120, A4_WIDTH-184, 30, 'rgba(221, 214, 254, .48)'],
-    [82, 128, 28, A4_HEIGHT-256, 'rgba(191, 219, 254, .42)'],
-    [A4_WIDTH-110, 128, 28, A4_HEIGHT-256, 'rgba(253, 164, 175, .38)']
-  ];
-  strips.forEach(([x,y,w,h,fill]) => {
-    ctx.fillStyle = fill;
-    ctx.fillRect(x,y,w,h);
-  });
-  ctx.strokeStyle = hexToRgba(color,.34); ctx.lineWidth = 1.6;
-  roundRect(ctx, 106, 106, A4_WIDTH-212, A4_HEIGHT-212, 20); ctx.stroke();
-  ctx.restore();
-}
-
 function hexToRgba(hex, alpha=1) {
   const v = hex.replace('#','');
   const n = v.length === 3 ? v.split('').map(ch => ch + ch).join('') : v;
@@ -1008,82 +945,99 @@ function drawStandardLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   });
 }
 
-
-
 function drawSpecialLayout(ctx, settings, safeX, safeY, safeW, safeH) {
   const topLeft = columnsState[0] || { items: [], align: 'top' };
   const topRight = columnsState[1] || { items: [], align: 'top' };
   const bottomCol = columnsState[2] || { items: [], align: 'top' };
 
-  const rowGapBase = Math.max(0, Number(settings.defaultGap ?? 12));
-  const colGapBase = Math.max(0, Number(settings.columnGap ?? 12));
+  const requestedGap = Math.max(0, Number(settings.columnGap ?? 12));
+  const baseTopGap = Math.min(requestedGap, safeW * 0.06);
+  const rowGap = Math.max(0, Number(settings.defaultGap || 0));
 
-  const availableH = Math.max(1, safeH - rowGapBase);
-  const topZoneH = availableH / 2;
-  const bottomZoneH = availableH / 2;
+  // Strict 1:1 vertical split for 上2下1
+  const topZoneHeight = safeH * 0.5;
+  const bottomZoneHeight = safeH * 0.5;
 
-  const topGap = Math.min(colGapBase, safeW * 0.12);
-  const baseTopW = (safeW - topGap) / 2;
+  const nonEmptyTop = [topLeft.items.length > 0, topRight.items.length > 0].filter(Boolean).length;
+  const soloTopMode = nonEmptyTop === 1;
 
-  const measureColumnAtWidth = (col, width) => {
-    const blocks = createBlocks(col.items).map(block => {
-      const measured = measureBlock(block, width, rowGapBase);
-      return { items: block, totalHeight: measured.totalHeight };
-    });
-    const totalHeight = blocks.reduce((sum, b, idx) => sum + b.totalHeight + (idx < blocks.length - 1 ? rowGapBase : 0), 0);
-    return { blocks, totalHeight };
+  const tentativeTopColWidth = soloTopMode
+    ? safeW * 0.72
+    : Math.min((safeW - baseTopGap) / 2, safeW * 0.455);
+
+  const measureColHeight = (items, width) => {
+    const blocks = createBlocks(items).map(block => measureBlock(block, width, rowGap));
+    const height = blocks.reduce((sum, b, i) => sum + b.totalHeight + (i < blocks.length - 1 ? rowGap : 0), 0);
+    return { blocks, height };
   };
 
-  const leftMeasure = measureColumnAtWidth(topLeft, baseTopW);
-  const rightMeasure = measureColumnAtWidth(topRight, baseTopW);
-  const topContentHBase = Math.max(leftMeasure.totalHeight, rightMeasure.totalHeight, 1);
-  const topScale = Math.min(1, topZoneH / topContentHBase);
-  const topW = baseTopW * topScale;
-  const scaledTopGap = topGap * topScale;
+  const topLeftMeasured = measureColHeight(topLeft.items, tentativeTopColWidth);
+  const topRightMeasured = measureColHeight(topRight.items, tentativeTopColWidth);
+  const tallestTopHeight = Math.max(topLeftMeasured.height, topRightMeasured.height, 1);
+  const topScale = Math.min(1, topZoneHeight / tallestTopHeight);
+  const topColWidth = tentativeTopColWidth * topScale;
+  const topGap = baseTopGap * topScale;
 
-  const bottomScaleTargetH = Math.max(1, bottomZoneH);
-  const desiredBottomW = Math.min(safeW * 0.92, topW * 2 + scaledTopGap);
-  const bottomMeasure = measureColumnAtWidth(bottomCol, desiredBottomW);
-  const bottomScale = Math.min(1, bottomScaleTargetH / Math.max(bottomMeasure.totalHeight, 1));
-  const bottomW = desiredBottomW * bottomScale;
-
-  const topContentWidth = topLeft.items.length && topRight.items.length ? (topW * 2 + scaledTopGap) : topW;
+  const topContentWidth = soloTopMode ? topColWidth : (topColWidth * 2 + topGap);
   const topStartX = safeX + (safeW - topContentWidth) / 2;
-  const topStartY = safeY + (topZoneH - Math.max(leftMeasure.totalHeight, rightMeasure.totalHeight) * topScale) / 2;
-  const bottomStartY = safeY + topZoneH + rowGapBase + (bottomZoneH - bottomMeasure.totalHeight * bottomScale) / 2;
-  const bottomStartX = safeX + (safeW - bottomW) / 2;
+  const topStartY = safeY;
 
-  const renderColumn = (col, x, y, width, scale, measureData) => {
-    let cursorY = y;
-    if (col.align === 'center') cursorY = y + ((Math.max(0, measureData.totalHeight * scale ? measureData.totalHeight * scale : 0)) - measureData.totalHeight * scale) / 2;
-    if (col.align === 'bottom') cursorY = y + Math.max(0, 0);
-    measureData.blocks.forEach((blockData, blockIdx) => {
-      const blockH = blockData.totalHeight * scale;
-      if (settings.whiteBorderEnabled && blockData.items.length) drawBlockBg(ctx, x, cursorY, width, blockH, scale);
-      blockData.items.forEach(item => {
+  let bottomWidth = Math.min(safeW * 0.72, topColWidth * 1.08);
+  const bottomMeasured0 = measureColHeight(bottomCol.items, bottomWidth);
+  if (bottomMeasured0.height > bottomZoneHeight && bottomMeasured0.height > 0) {
+    bottomWidth *= bottomZoneHeight / bottomMeasured0.height;
+  }
+  const bottomMeasured = measureColHeight(bottomCol.items, bottomWidth);
+  const bottomContentHeight = Math.min(bottomZoneHeight, bottomMeasured.height);
+  const bottomStartX = safeX + (safeW - bottomWidth) / 2;
+  const bottomStartY = safeY + topZoneHeight;
+
+  const drawBlocksScaled = (col, startX, startY, zoneHeight, drawWidth, scaleValue) => {
+    const measured = measureColHeight(col.items, drawWidth / scaleValue);
+    const contentHeight = measured.height * scaleValue;
+    let y = startY;
+    if (col.align === 'center') y = startY + (zoneHeight - contentHeight) / 2;
+    if (col.align === 'bottom') y = startY + (zoneHeight - contentHeight);
+
+    const blocks = createBlocks(col.items);
+    blocks.forEach((block, blockIndex) => {
+      const metric = measureBlock(block, drawWidth / scaleValue, rowGap);
+      const blockHeight = metric.totalHeight * scaleValue;
+      if (settings.whiteBorderEnabled && block.length) drawBlockBg(ctx, startX, y, drawWidth, blockHeight, scaleValue);
+      block.forEach((item) => {
         const imgData = getImageNaturalSize(item.id);
         if (!imgData) return;
-        const drawW = width;
-        const drawH = drawW * imgData.ratio;
-        drawImageRounded(ctx, imgData.img, x, cursorY, drawW, drawH, 0);
-        cursorY += drawH;
+        const drawH = drawWidth * imgData.ratio;
+        drawImageRounded(ctx, imgData.img, startX, y, drawWidth, drawH, item.noGapBelow ? 8 : 18);
+        y += drawH;
       });
-      if (blockIdx < measureData.blocks.length - 1) cursorY += rowGapBase * scale;
+      if (blockIndex < blocks.length - 1) y += rowGap * scaleValue;
     });
   };
 
-  if (topLeft.items.length && topRight.items.length) {
-    renderColumn(topLeft, topStartX, topStartY, topW, topScale, leftMeasure);
-    renderColumn(topRight, topStartX + topW + scaledTopGap, topStartY, topW, topScale, rightMeasure);
-  } else if (topLeft.items.length) {
-    renderColumn(topLeft, topStartX, topStartY, topW, topScale, leftMeasure);
-  } else if (topRight.items.length) {
-    renderColumn(topRight, topStartX, topStartY, topW, topScale, rightMeasure);
+  if (topLeft.items.length) drawBlocksScaled(topLeft, topStartX, topStartY, topZoneHeight, topColWidth, topScale);
+  if (topRight.items.length) {
+    const x = soloTopMode ? topStartX : topStartX + topColWidth + topGap;
+    drawBlocksScaled(topRight, x, topStartY, topZoneHeight, topColWidth, topScale);
   }
 
-  renderColumn(bottomCol, bottomStartX, bottomStartY, bottomW, bottomScale, bottomMeasure);
+  if (bottomCol.items.length) {
+    let y = bottomStartY + Math.max(0, (bottomZoneHeight - bottomContentHeight) / 2);
+    const blocks = createBlocks(bottomCol.items);
+    blocks.forEach((block, blockIndex) => {
+      const metric = measureBlock(block, bottomWidth, rowGap);
+      if (settings.whiteBorderEnabled && block.length) drawBlockBg(ctx, bottomStartX, y, bottomWidth, metric.totalHeight, 1);
+      block.forEach((item) => {
+        const imgData = getImageNaturalSize(item.id);
+        if (!imgData) return;
+        const drawH = bottomWidth * imgData.ratio;
+        drawImageRounded(ctx, imgData.img, bottomStartX, y, bottomWidth, drawH, item.noGapBelow ? 8 : 18);
+        y += drawH;
+      });
+      if (blockIndex < blocks.length - 1) y += rowGap;
+    });
+  }
 }
-
 
 function drawBlockBg(ctx, x, y, w, h, scale) {
   ctx.save();
@@ -1094,9 +1048,12 @@ function drawBlockBg(ctx, x, y, w, h, scale) {
   ctx.fill();
   ctx.restore();
 }
-function drawImageRounded(ctx, img, x, y, w, h, radius=0) {
-  // Images on the A4 canvas should keep sharp rectangular corners.
+function drawImageRounded(ctx, img, x, y, w, h, radius=18) {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.clip();
   ctx.drawImage(img, x, y, w, h);
+  ctx.restore();
 }
 function roundRect(ctx, x, y, w, h, r) {
   const rr = Math.min(r, w/2, h/2);

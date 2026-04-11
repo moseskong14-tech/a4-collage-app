@@ -840,21 +840,3 @@ input[type="range"]{accent-color:#2563eb}
 #globalBgPalette > *, #innerBgPalette > *, #patternPalette > *{flex:0 0 auto !important;}
 #globalBgPalette .swatch, #innerBgPalette .swatch, #patternPalette .swatch, #globalBgPalette .color-picker, #innerBgPalette .color-picker, #patternPalette .color-picker{width:2.85rem !important; height:2.85rem !important; min-width:2.85rem !important; aspect-ratio:1 / 1 !important; border-radius:999px !important;}
 @media (max-width:640px){#globalBgPalette .swatch, #innerBgPalette .swatch, #patternPalette .swatch, #globalBgPalette .color-picker, #innerBgPalette .color-picker, #patternPalette .color-picker{width:2.65rem !important; height:2.65rem !important; min-width:2.65rem !important;}}
-
-/* V15 hard lock palette rows */
-#globalBgPalette,#innerBgPalette,#patternPalette{
-  display:flex !important;
-  flex-wrap:nowrap !important;
-  overflow-x:auto !important;
-  overflow-y:hidden !important;
-  white-space:nowrap !important;
-  align-items:center !important;
-  gap:.65rem !important;
-  max-width:100% !important;
-  padding-bottom:.25rem !important;
-  -webkit-overflow-scrolling:touch !important;
-}
-#globalBgPalette .swatch,#innerBgPalette .swatch,#patternPalette .swatch,
-#globalBgPalette .color-picker,#innerBgPalette .color-picker,#patternPalette .color-picker{
-  flex:0 0 2.75rem !important;
-}
