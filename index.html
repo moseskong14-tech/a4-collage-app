@@ -101,10 +101,6 @@
                   <option value="elegant">經典雅緻框</option>
 </select>
               </div>
-              <div class="sm:col-span-2">
-                <label class="field-label">圖片立體白邊</label>
-                <button id="whiteBorderToggle" type="button" class="toggle-off"><span id="whiteBorderText">關閉</span></button>
-              </div>
             </div>
           </details>
 
@@ -127,6 +123,7 @@
                 <label class="field-label">線條與花紋顏色</label>
                 <div class="shared-color-row palette-scroll-row" id="patternPalette">
                   <input id="patternColor" type="color" class="color-picker" value="#c9a227" />
+                  <button id="sampleColorBtn" class="btn-secondary text-xs px-2 py-1 whitespace-nowrap" title="從第一欄主圖取色"><i class="fa-solid fa-eye-dropper"></i></button>
                   <button class="swatch ring-2 ring-slate-300" data-target="patternColor" data-color="#c9a227" style="background:#c9a227"></button>
                   <button class="swatch" data-target="patternColor" data-color="#64748b" style="background:#64748b"></button>
                   <button class="swatch" data-target="patternColor" data-color="#be123c" style="background:#be123c"></button>
@@ -146,7 +143,10 @@
       <section id="boardSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-5 space-y-4 mobile-panel">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold">拖曳佈局看板</h2>
-          <span class="text-xs text-slate-400">拖曳排序 / 跨欄移動 / 無縫貼齊</span>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400">拖曳排序 / 跨欄移動 / 無縫貼齊</span>
+            <button id="autoBalanceBtn" class="btn-secondary text-xs py-1 px-2"><i class="fa-solid fa-scale-balanced"></i> 自動平衡</button>
+          </div>
         </div>
         <div id="kanbanBoard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       </section>
@@ -282,6 +282,7 @@
     <button id="mobileDownloadBtn" class="mobile-dock-btn mobile-dock-btn-primary"><i class="fa-solid fa-download"></i><span>下載</span></button>
   </div>
 
+  <script src="./assets/frame-assets.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
