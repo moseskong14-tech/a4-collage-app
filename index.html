@@ -48,12 +48,27 @@
                 </select>
               </div>
               <div>
+                <label class="field-label">留白模式</label>
+                <select id="spacingMode" class="field-input">
+                  <option value="tight">緊密</option>
+                  <option value="normal" selected>標準</option>
+                  <option value="airy">寬鬆</option>
+                </select>
+              </div>
+              <div>
                 <label class="field-label">上下間距（同欄） <span id="gapValue" class="text-slate-400">12</span></label>
                 <input id="defaultGap" type="range" min="0" max="180" value="12" step="1" class="w-full" />
               </div>
               <div>
                 <label class="field-label">左右欄距（欄與欄之間） <span id="columnGapValue" class="text-slate-400">12 px</span></label>
                 <input id="columnGap" type="range" min="0" max="280" value="12" step="1" class="w-full" />
+              </div>
+              <div class="sm:col-span-2">
+                <button id="beautifyBtn" class="btn-secondary w-full justify-center" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i><span>一鍵美化</span></button>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="field-label">作者名 metadata</label>
+                <input id="authorName" class="field-input" type="text" value="Maggie Fung" />
               </div>
               <div class="sm:col-span-2">
                 <label class="field-label">A4 藝術邊框</label>
@@ -80,6 +95,16 @@
                   <option value="rose-garden">典雅紅玫瑰</option>
                   <option value="spring-daisy">春日小雛菊</option>
                   <option value="watercolor-floral">浪漫水彩花卉</option>
+
+                  <optgroup label="新款邊框">
+                    <option value="journal-tape">手帳膠帶框</option>
+                    <option value="birthday-confetti">生日彩紙框</option>
+                    <option value="minimal-dots">簡約圓點框</option>
+                    <option value="pastel-grid">粉彩格紋框</option>
+                    <option value="ribbon-corner">緞帶角框</option>
+                    <option value="school-notes">筆記紙框</option>
+                    <option value="starry-frame">星星框</option>
+                  </optgroup>
                   
                   <optgroup label="插畫花款（正式可用）">
                     <option value="motif-01">夢幻蝶光</option>
@@ -168,6 +193,10 @@
             <i class="fa-solid fa-pen absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input id="filenameInput" class="field-input pl-10" type="text" />
           </div>
+          <select id="outputFormat" class="field-input sm:w-32">
+            <option value="png" selected>PNG</option>
+            <option value="jpeg">JPEG</option>
+          </select>
           <button id="downloadBtn" class="btn-primary justify-center"><i class="fa-solid fa-download"></i><span>直接下載</span></button>
         </div>
 

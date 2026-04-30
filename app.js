@@ -1,6 +1,7 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
+const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
 const DB_NAME = 'A4CollageDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'workspace';
@@ -110,8 +111,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function cacheEls() {
   [
-    'imageInput','openTextCardBtn','resetBtn','layoutMode','defaultGap','gapValue','columnGap','columnGapValue','frameStyle','globalBgColor','innerBgColor','patternColor',
-    'kanbanBoard','saveDot','saveText','filenameInput','downloadBtn','loading','collageCanvas',
+    'imageInput','openTextCardBtn','resetBtn','layoutMode','spacingMode','defaultGap','gapValue','columnGap','columnGapValue','beautifyBtn','authorName','frameStyle','globalBgColor','innerBgColor','patternColor',
+    'kanbanBoard','saveDot','saveText','filenameInput','outputFormat','downloadBtn','loading','collageCanvas',
     'textCardModal','textCardPreview','textCardContent','textCardTextColor','textCardBgColor','textCardFontSize','textCardAlignH','textCardAlignV','addTextCardBtn',
     'imageTextModal','imageTextPreview','imageTextContent','imageTextColor','imageTextSize','imageTextAlign','applyImageTextBtn',
     'imageInputMobileProxy','mobileTextCardBtn','mobileDownloadBtn','autoBalanceBtn','sampleColorBtn'
@@ -156,6 +157,8 @@ function bindEvents() {
     els.defaultGap.addEventListener(evtName, syncSpacingControls);
     els.columnGap.addEventListener(evtName, syncSpacingControls);
   });
+  if (els.spacingMode) els.spacingMode.addEventListener('change', () => applySpacingMode(els.spacingMode.value, true));
+  if (els.authorName) els.authorName.addEventListener('input', triggerAutoSave);
   ['frameStyle','patternColor'].forEach(id => els[id].addEventListener('input', stateChanged));
   ['globalBgColor','innerBgColor'].forEach(id => els[id].addEventListener('input', () => { updateSwatchSelection(id, els[id].value); stateChanged(); }));
   els.openTextCardBtn.addEventListener('click', () => openModal(els.textCardModal));
@@ -165,6 +168,7 @@ function bindEvents() {
   els.addTextCardBtn.addEventListener('click', addTextCardToBoard);
   els.resetBtn.addEventListener('click', clearAll);
   if (els.autoBalanceBtn) els.autoBalanceBtn.addEventListener('click', handleAutoBalance);
+  if (els.beautifyBtn) els.beautifyBtn.addEventListener('click', applyBeautifyPreset);
   if (els.sampleColorBtn) els.sampleColorBtn.addEventListener('click', applyPatternColorFromPrimaryImage);
   els.filenameInput.addEventListener('input', () => { currentFilename = sanitizeFilename(els.filenameInput.value.trim()) || defaultFilename(); isCustomFilename = true; els.filenameInput.value = currentFilename; triggerAutoSave(); });
   els.downloadBtn.addEventListener('click', downloadCanvas);
@@ -261,6 +265,34 @@ function syncSpacingControls() {
   triggerAutoSave();
 }
 
+function applySpacingMode(mode, notify=false) {
+  const presets = {
+    tight: { row: 4, col: 4, label: '緊密' },
+    normal: { row: 12, col: 12, label: '標準' },
+    airy: { row: 28, col: 24, label: '寬鬆' }
+  };
+  const preset = presets[mode] || presets.normal;
+  els.defaultGap.value = preset.row;
+  els.columnGap.value = preset.col;
+  syncSpacingControls();
+  if (notify) showStatus(`已套用${preset.label}留白`, 'success');
+}
+
+function applyBeautifyPreset() {
+  const minGap = 16;
+  els.defaultGap.value = Math.max(Number(els.defaultGap.value || 0), minGap);
+  els.columnGap.value = Math.max(Number(els.columnGap.value || 0), minGap);
+  els.globalBgColor.value = '#f8fafc';
+  els.innerBgColor.value = '#ffffff';
+  els.patternColor.value = '#c9a227';
+  updateSwatchSelection('globalBgColor', els.globalBgColor.value);
+  updateSwatchSelection('innerBgColor', els.innerBgColor.value);
+  updateSwatchSelection('patternColor', els.patternColor.value);
+  syncSpacingControls();
+  stateChanged();
+  showStatus('已套用安全美化', 'success');
+}
+
 
 function defaultFilename() {
   const d = new Date();
@@ -306,6 +338,10 @@ async function handleImageUpload(e) {
     }
     renderKanban();
     stateChanged();
+    showStatus(`已加入 ${files.length} 張圖片`, 'success');
+  } catch (err) {
+    console.error(err);
+    showStatus('圖片載入失敗，請換一張試試', 'error');
   } finally {
     showLoading(false);
     e.target.value = '';
@@ -398,8 +434,9 @@ function renderKanban() {
               <i class="fa-solid fa-thumbtack"></i>
             </button>
             <button class="kanban-mini-icon ${(item.widthRatio ?? 1.0) < 1.0 ? 'is-active' : ''} width-ratio-btn" data-id="${item.id}" title="佔寬比例">
-              <span style="font-size:0.7em;font-weight:600;letter-spacing:-0.02em">${(item.widthRatio ?? 1.0) === 1.0 ? '全' : (item.widthRatio ?? 1.0) === 0.75 ? '¾' : '½'}</span>
+              <span style="font-size:0.7em;font-weight:600;letter-spacing:-0.02em">${(() => { const wr = item.widthRatio ?? 1.0; return Math.abs(wr - 1.0) < 0.01 ? '全' : Math.abs(wr - 0.75) < 0.01 ? '¾' : Math.abs(wr - 0.5) < 0.01 ? '½' : `${Math.round(wr * 100)}%`; })()}</span>
             </button>
+            <input class="width-percent-input" data-id="${item.id}" type="number" min="30" max="100" step="5" value="${Math.round((item.widthRatio ?? 1.0) * 100)}" title="圖片寬度百分比" style="width:3.4rem;height:1.75rem;font-size:0.72rem;text-align:center;padding:0 0.15rem;border:1px solid #d8e1ee;border-radius:0.45rem;background:#fff;color:#1f2937;">
             ${reg.type === 'image' ? `<button class="kanban-mini-icon edit-btn" data-id="${item.id}" title="加字"><i class="fa-solid fa-pen-nib"></i></button>` : `<div class="kanban-mini-spacer"></div>`}
             <button class="kanban-mini-icon is-danger delete-btn" data-id="${item.id}" title="刪除"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -418,6 +455,7 @@ function renderKanban() {
   document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => openImageTextEditor(btn.dataset.id)));
   document.querySelectorAll('.pin-btn').forEach(btn => btn.addEventListener('click', () => togglePinned(btn.dataset.id)));
   document.querySelectorAll('.width-ratio-btn').forEach(btn => btn.addEventListener('click', () => toggleWidthRatio(btn.dataset.id)));
+  document.querySelectorAll('.width-percent-input').forEach(input => input.addEventListener('change', () => setWidthRatioPercent(input.dataset.id, input.value)));
 }
 
 function clearDropIndicators() {
@@ -464,6 +502,22 @@ function toggleWidthRatio(id) {
       const cur = item.widthRatio ?? 1.0;
       const idx = steps.findIndex(s => Math.abs(s - cur) < 0.01);
       item.widthRatio = steps[(idx + 1) % steps.length];
+      break;
+    }
+  }
+  renderKanban();
+  stateChanged();
+}
+
+function setWidthRatioPercent(id, value) {
+  for (const col of columnsState) {
+    const item = col.items.find(x => x.id === id);
+    if (item) {
+      const currentPercent = Math.round((item.widthRatio ?? 1.0) * 100);
+      const parsed = Number(value);
+      const rawPercent = Number.isFinite(parsed) ? parsed : currentPercent;
+      const percent = Math.min(100, Math.max(30, Math.round(rawPercent)));
+      item.widthRatio = percent / 100;
       break;
     }
   }
@@ -522,11 +576,17 @@ function getSettings() {
     globalBgColor: els.globalBgColor.value,
     innerBgColor: els.innerBgColor.value,
     patternColor: els.patternColor.value,
+    authorName: getAuthorName(),
   };
 }
 
+function getAuthorName() {
+  const value = els.authorName?.value.trim();
+  return value || DEFAULT_AUTHOR_NAME;
+}
+
 function computeSafeArea(frameStyle) {
-  const floral = ['editorial-luxe','photo-mat','parchment-classic','chapel-ornament','botanical-corners','washi-soft','botanical-atelier','artdeco-ornament','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners'];
+  const floral = ['editorial-luxe','photo-mat','parchment-classic','chapel-ornament','botanical-corners','washi-soft','botanical-atelier','artdeco-ornament','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners','journal-tape','birthday-confetti','minimal-dots','pastel-grid','ribbon-corner','school-notes','starry-frame'];
   let margin;
   if (FRAME_ASSET_MAP[frameStyle]) {
     const meta = FRAME_ASSET_MAP[frameStyle];
@@ -587,7 +647,7 @@ function drawBackgroundAndFrame(ctx, s) {
   ctx.fillStyle = s.globalBgColor;
   ctx.fillRect(0,0,A4_WIDTH,A4_HEIGHT);
   let margin = 90;
-  const floral = ['editorial-luxe','photo-mat','parchment-classic','chapel-ornament','botanical-corners','washi-soft','botanical-atelier','artdeco-ornament','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners'];
+  const floral = ['editorial-luxe','photo-mat','parchment-classic','chapel-ornament','botanical-corners','washi-soft','botanical-atelier','artdeco-ornament','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners','journal-tape','birthday-confetti','minimal-dots','pastel-grid','ribbon-corner','school-notes','starry-frame'];
   if (FRAME_ASSET_MAP[s.frameStyle]) {
     margin = drawImageFrameAsset(ctx, s.frameStyle);
   } else if (floral.includes(s.frameStyle)) {
@@ -682,6 +742,20 @@ function drawProceduralFrame(ctx, style, color) {
     drawBambooFrame(ctx, color);
   } else if (style === 'ribbon-corners') {
     drawRibbonCorners(ctx, color);
+  } else if (style === 'journal-tape') {
+    drawJournalTapeFrame(ctx, color);
+  } else if (style === 'birthday-confetti') {
+    drawBirthdayConfettiFrame(ctx, color);
+  } else if (style === 'minimal-dots') {
+    drawMinimalDotsFrame(ctx, color);
+  } else if (style === 'pastel-grid') {
+    drawPastelGridFrame(ctx, color);
+  } else if (style === 'ribbon-corner') {
+    drawRibbonCornerFrame(ctx, color);
+  } else if (style === 'school-notes') {
+    drawSchoolNotesFrame(ctx, color);
+  } else if (style === 'starry-frame') {
+    drawStarrySimpleFrame(ctx, color);
   } else {
     for (let i = 0; i < 12; i++) {
       drawFlowerDot(ctx, 120 + (i%4)*45, 120 + i*260, 40, '#f9a8d4', color);
@@ -794,6 +868,154 @@ function drawRibbonCorners(ctx, color) {
     ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(0,12,76,10);
     ctx.restore();
   });
+}
+
+function drawJournalTapeFrame(ctx, color) {
+  ctx.save();
+  const tapes = [
+    [92, 78, A4_WIDTH - 184, 52, 'rgba(253, 230, 138, .58)'],
+    [112, A4_HEIGHT - 132, A4_WIDTH - 224, 52, 'rgba(191, 219, 254, .58)'],
+    [76, 154, 52, A4_HEIGHT - 308, 'rgba(249, 168, 212, .42)'],
+    [A4_WIDTH - 128, 154, 52, A4_HEIGHT - 308, 'rgba(167, 243, 208, .46)']
+  ];
+  tapes.forEach(([x, y, w, h, fill], idx) => {
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = idx % 2 ? 'rgba(15,23,42,.18)' : hexToRgba(color, .28);
+    ctx.lineWidth = 2;
+    ctx.setLineDash([18, 16]);
+    if (w > h) {
+      ctx.beginPath(); ctx.moveTo(x + 24, y + h / 2); ctx.lineTo(x + w - 24, y + h / 2); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(x + w / 2, y + 24); ctx.lineTo(x + w / 2, y + h - 24); ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]);
+  ctx.strokeStyle = hexToRgba(color, .36);
+  ctx.lineWidth = 2;
+  roundRect(ctx, 106, 106, A4_WIDTH - 212, A4_HEIGHT - 212, 18); ctx.stroke();
+  ctx.restore();
+}
+
+function drawBirthdayConfettiFrame(ctx, color) {
+  ctx.save();
+  const fills = [color, '#fb7185', '#38bdf8', '#facc15', '#a78bfa', '#34d399'];
+  const corners = [[126,126,1,1],[A4_WIDTH-126,126,-1,1],[126,A4_HEIGHT-126,1,-1],[A4_WIDTH-126,A4_HEIGHT-126,-1,-1]];
+  corners.forEach(([cx, cy, sx, sy], cornerIdx) => {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy);
+    for (let i = 0; i < 34; i++) {
+      const angle = (i / 34) * Math.PI / 2;
+      const dist = 24 + (i % 7) * 18;
+      const x = Math.cos(angle) * dist;
+      const y = Math.sin(angle) * dist;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle + i * .37);
+      ctx.fillStyle = fills[(i + cornerIdx) % fills.length];
+      ctx.globalAlpha = .72;
+      if (i % 5 === 0) drawStar(ctx, 0, 0, 10 + (i % 3) * 3, ctx.fillStyle, .78);
+      else ctx.fillRect(-10, -4, 20, 8);
+      ctx.restore();
+    }
+    ctx.restore();
+  });
+  ctx.strokeStyle = hexToRgba(color, .42);
+  ctx.lineWidth = 3;
+  roundRect(ctx, 92, 92, A4_WIDTH - 184, A4_HEIGHT - 184, 38); ctx.stroke();
+  ctx.restore();
+}
+
+function drawMinimalDotsFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = hexToRgba(color, .72);
+  ctx.lineWidth = 3;
+  roundRect(ctx, 96, 96, A4_WIDTH - 192, A4_HEIGHT - 192, 24); ctx.stroke();
+  ctx.strokeStyle = hexToRgba(color, .26);
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 136, 136, A4_WIDTH - 272, A4_HEIGHT - 272, 18); ctx.stroke();
+  ctx.fillStyle = hexToRgba(color, .58);
+  for (let x = 150; x <= A4_WIDTH - 150; x += 82) {
+    ctx.beginPath(); ctx.arc(x, 122, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, A4_HEIGHT - 122, 5, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let y = 184; y <= A4_HEIGHT - 184; y += 82) {
+    ctx.beginPath(); ctx.arc(122, y, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(A4_WIDTH - 122, y, 5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawPastelGridFrame(ctx, color) {
+  ctx.save();
+  const inset = 92;
+  const fills = ['rgba(254,202,202,.42)', 'rgba(191,219,254,.42)', 'rgba(187,247,208,.38)', 'rgba(253,230,138,.4)'];
+  [[inset, inset, A4_WIDTH - inset * 2, 64], [inset, A4_HEIGHT - inset - 64, A4_WIDTH - inset * 2, 64], [inset, inset + 70, 64, A4_HEIGHT - inset * 2 - 140], [A4_WIDTH - inset - 64, inset + 70, 64, A4_HEIGHT - inset * 2 - 140]].forEach(([x, y, w, h], idx) => {
+    ctx.fillStyle = fills[idx % fills.length];
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,.72)';
+    ctx.lineWidth = 2;
+    const step = 32;
+    for (let gx = x; gx <= x + w; gx += step) { ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke(); }
+    for (let gy = y; gy <= y + h; gy += step) { ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke(); }
+  });
+  ctx.strokeStyle = hexToRgba(color, .36);
+  ctx.lineWidth = 3;
+  roundRect(ctx, 108, 108, A4_WIDTH - 216, A4_HEIGHT - 216, 24); ctx.stroke();
+  ctx.restore();
+}
+
+function drawRibbonCornerFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = hexToRgba(color, .5);
+  ctx.lineWidth = 3;
+  roundRect(ctx, 94, 94, A4_WIDTH - 188, A4_HEIGHT - 188, 28); ctx.stroke();
+  [[128,128,1,1],[A4_WIDTH-128,128,-1,1],[128,A4_HEIGHT-128,1,-1],[A4_WIDTH-128,A4_HEIGHT-128,-1,-1]].forEach(([x,y,sx,sy]) => {
+    ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy);
+    ctx.fillStyle = hexToRgba(color, .82);
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(118,0); ctx.lineTo(92,30); ctx.lineTo(118,60); ctx.lineTo(0,60); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.28)';
+    ctx.fillRect(12, 13, 76, 10);
+    ctx.fillStyle = 'rgba(15,23,42,.12)';
+    ctx.beginPath(); ctx.moveTo(0,60); ctx.lineTo(34,60); ctx.lineTo(0,94); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function drawSchoolNotesFrame(ctx, color) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  roundRect(ctx, 88, 88, A4_WIDTH - 176, A4_HEIGHT - 176, 18); ctx.fill();
+  ctx.strokeStyle = 'rgba(96,165,250,.34)';
+  ctx.lineWidth = 2;
+  for (let y = 180; y <= A4_HEIGHT - 180; y += 84) {
+    ctx.beginPath(); ctx.moveTo(116, y); ctx.lineTo(A4_WIDTH - 116, y); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(248,113,113,.5)';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(176, 112); ctx.lineTo(176, A4_HEIGHT - 112); ctx.stroke();
+  ctx.fillStyle = hexToRgba(color, .42);
+  for (let y = 166; y <= A4_HEIGHT - 166; y += 210) {
+    ctx.beginPath(); ctx.arc(128, y, 10, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = hexToRgba(color, .5);
+  ctx.lineWidth = 3;
+  roundRect(ctx, 88, 88, A4_WIDTH - 176, A4_HEIGHT - 176, 18); ctx.stroke();
+  ctx.restore();
+}
+
+function drawStarrySimpleFrame(ctx, color) {
+  ctx.save();
+  ctx.strokeStyle = hexToRgba(color, .56);
+  ctx.lineWidth = 3;
+  roundRect(ctx, 98, 98, A4_WIDTH - 196, A4_HEIGHT - 196, 34); ctx.stroke();
+  for (let i = 0; i < 96; i++) {
+    const edge = i % 4;
+    const span = edge < 2 ? A4_WIDTH - 260 : A4_HEIGHT - 260;
+    const pos = 130 + ((i * 97) % span);
+    const x = edge === 0 || edge === 1 ? pos : (edge === 2 ? 122 : A4_WIDTH - 122);
+    const y = edge === 0 ? 122 : edge === 1 ? A4_HEIGHT - 122 : pos;
+    drawStar(ctx, x, y, 7 + (i % 4) * 3, i % 3 === 0 ? color : '#facc15', .45 + (i % 5) * .08);
+  }
+  ctx.restore();
 }
 
 
@@ -1368,7 +1590,7 @@ function roundRect(ctx, x, y, w, h, r) {
 function openModal(el) { el.classList.remove('hidden'); }
 function closeModal(el) { el.classList.add('hidden'); }
 
-function drawMultiLineTextOnCanvas(ctx, text, x, y, maxWidth, lineHeight, alignH='center', alignV='center') {
+function drawMultiLineTextOnCanvas(ctx, text, x, y, maxWidth, lineHeight, alignH='center', alignV='center', options={}) {
   const words = text.split('\n');
   const lines = [];
   words.forEach(paragraph => {
@@ -1390,6 +1612,7 @@ function drawMultiLineTextOnCanvas(ctx, text, x, y, maxWidth, lineHeight, alignH
     if (alignH === 'left') ctx.textAlign = 'left';
     if (alignH === 'center') ctx.textAlign = 'center';
     if (alignH === 'right') ctx.textAlign = 'right';
+    if (options.stroke) ctx.strokeText(line, tx, startY + i * lineHeight);
     ctx.fillText(line, tx, startY + i * lineHeight);
   });
   const widest = Math.max(...lines.map(line => ctx.measureText(line).width), 0);
@@ -1571,10 +1794,19 @@ async function applyImageText() {
   bake.width = previewBaseImage.width; bake.height = previewBaseImage.height;
   const ctx = bake.getContext('2d');
   ctx.drawImage(previewBaseImage, 0, 0);
+  ctx.save();
   ctx.fillStyle = textState.color;
   const fontSize = Math.max(24, bake.width * (textState.fontSizeRatio / 100));
   ctx.font = `700 ${fontSize}px sans-serif`;
-  drawMultiLineTextOnCanvas(ctx, textState.text || ' ', textState.x * (bake.width / els.imageTextPreview.width), textState.y * (bake.height / els.imageTextPreview.height), textState.wrapWidth * (bake.width / els.imageTextPreview.width), fontSize*1.35, textState.alignH, 'center');
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,.55)';
+  ctx.lineWidth = Math.max(3, fontSize * .06);
+  ctx.shadowColor = 'rgba(0,0,0,.35)';
+  ctx.shadowBlur = Math.max(4, fontSize * .06);
+  ctx.shadowOffsetX = Math.max(2, fontSize * .025);
+  ctx.shadowOffsetY = Math.max(2, fontSize * .025);
+  drawMultiLineTextOnCanvas(ctx, textState.text || ' ', textState.x * (bake.width / els.imageTextPreview.width), textState.y * (bake.height / els.imageTextPreview.height), textState.wrapWidth * (bake.width / els.imageTextPreview.width), fontSize*1.35, textState.alignH, 'center', { stroke: true });
+  ctx.restore();
   const originalData = bake.toDataURL('image/jpeg', 0.95);
   imageRegistry[activeImageEditId].originalData = originalData;
   imageRegistry[activeImageEditId].previewData = await createPreview(originalData, 520, 0.94);
@@ -1585,6 +1817,16 @@ async function applyImageText() {
 }
 
 function showLoading(show) { els.loading.classList.toggle('hidden', !show); }
+function showStatus(message, tone='info') {
+  const map = {
+    info: 'bg-sky-500',
+    success: 'bg-emerald-500',
+    warning: 'bg-amber-400',
+    error: 'bg-rose-500'
+  };
+  els.saveDot.className = `w-3 h-3 rounded-full inline-block ${map[tone] || map.info}`;
+  els.saveText.textContent = message;
+}
 function updateSaveStatus(state) {
   const map = {
     idle:['bg-slate-300','尚未存檔'], saving:['bg-amber-400','儲存中…'], saved:['bg-emerald-500','已自動儲存'], error:['bg-rose-500','存檔失敗']
@@ -1665,7 +1907,7 @@ async function saveWorkspace() {
     updateSaveStatus('saved');
   } catch (err) {
     console.error(err);
-    updateSaveStatus('error');
+    showStatus('自動儲存失敗，圖片可能太多', 'error');
   } finally {
     isSaving = false;
     if (pendingSaveRequested && !resetInProgress) { pendingSaveRequested = false; await saveWorkspace(); }
@@ -1688,6 +1930,7 @@ async function loadWorkspace() {
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
     els.innerBgColor.value = workspace.settings?.innerBgColor || '#ffffff';
     els.patternColor.value = workspace.settings?.patternColor || '#c9a227';
+    if (els.authorName) els.authorName.value = workspace.settings?.authorName || DEFAULT_AUTHOR_NAME;
     updateSwatchSelection('globalBgColor', els.globalBgColor.value);
     updateSwatchSelection('innerBgColor', els.innerBgColor.value);
     currentFilename = workspace.settings?.filename || defaultFilename();
@@ -1726,6 +1969,7 @@ async function clearAll() {
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';
     els.patternColor.value = '#c9a227';
+    if (els.authorName) els.authorName.value = DEFAULT_AUTHOR_NAME;
     updateSwatchSelection('globalBgColor', els.globalBgColor.value);
     updateSwatchSelection('innerBgColor', els.innerBgColor.value);
     els.textCardContent.value = '';
@@ -1740,6 +1984,7 @@ async function clearAll() {
     renderKanban();
     throttledDrawCanvas();
     updateSaveStatus('idle');
+    showStatus('已重設全部', 'success');
   } catch (err) {
     console.error(err);
     updateSaveStatus('error');
@@ -1749,14 +1994,21 @@ async function clearAll() {
 }
 
 function downloadCanvas() {
+  const format = els.outputFormat?.value === 'jpeg' ? 'jpeg' : 'png';
+  const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+  const extension = format === 'jpeg' ? 'jpg' : 'png';
   els.collageCanvas.toBlob(blob => {
-    if (!blob) return;
+    if (!blob) {
+      showStatus('下載失敗，請再試一次', 'error');
+      return;
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${sanitizeFilename(currentFilename || defaultFilename())}.png`;
+    a.href = url; a.download = `${sanitizeFilename(currentFilename || defaultFilename())}.${extension}`;
     document.body.appendChild(a); a.click(); a.remove();
+    showStatus(`${format === 'jpeg' ? 'JPEG' : 'PNG'} 已開始下載`, 'success');
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, 'image/png');
+  }, mimeType, format === 'jpeg' ? 0.92 : undefined);
 }
 
 
