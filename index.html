@@ -56,12 +56,12 @@
                 </select>
               </div>
               <div>
-                <label class="field-label">上下間距（同欄） <span id="gapValue" class="text-slate-400">12</span></label>
-                <input id="defaultGap" type="range" min="0" max="180" value="12" step="1" class="w-full" />
+                <label class="field-label">上下間距（同欄） <span id="gapValue" class="text-slate-400">20 px</span></label>
+                <input id="defaultGap" type="range" min="0" max="180" value="15" step="1" class="w-full" />
               </div>
               <div>
-                <label class="field-label">左右欄距（欄與欄之間） <span id="columnGapValue" class="text-slate-400">12 px</span></label>
-                <input id="columnGap" type="range" min="0" max="280" value="12" step="1" class="w-full" />
+                <label class="field-label">左右欄距（欄與欄之間） <span id="columnGapValue" class="text-slate-400">20 px</span></label>
+                <input id="columnGap" type="range" min="0" max="280" value="13" step="1" class="w-full" />
               </div>
               <div class="sm:col-span-2">
                 <button id="beautifyBtn" class="btn-secondary w-full justify-center" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i><span>一鍵美化</span></button>
@@ -73,7 +73,7 @@
               <div class="sm:col-span-2">
                 <label class="field-label">A4 藝術邊框</label>
                 <select id="frameStyle" class="field-input">
-                  <option value="editorial-luxe" selected>典藏金線畫廊框</option>
+                  <option value="editorial-luxe">典藏金線畫廊框</option>
                   <option value="photo-mat">相紙卡紙框</option>
                   <option value="parchment-classic">羊皮紙卷框</option>
                   <option value="chapel-ornament">教堂角飾框</option>
@@ -120,7 +120,7 @@
                     <option value="motif-11">水彩蝶葉</option>
                   </optgroup>
 
-                  <option value="none">無</option>
+                  <option value="none" selected>無</option>
                   <option value="solid-white">純白邊框</option>
                   <option value="double">雙線邊框</option>
                   <option value="elegant">經典雅緻框</option>

@@ -2,6 +2,9 @@ const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
+const DEFAULT_ROW_GAP_RAW = 15;
+const DEFAULT_COLUMN_GAP_RAW = 13;
+const DEFAULT_FRAME_STYLE = 'none';
 const DB_NAME = 'A4CollageDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'workspace';
@@ -268,7 +271,7 @@ function syncSpacingControls() {
 function applySpacingMode(mode, notify=false) {
   const presets = {
     tight: { row: 4, col: 4, label: '緊密' },
-    normal: { row: 12, col: 12, label: '標準' },
+    normal: { row: DEFAULT_ROW_GAP_RAW, col: DEFAULT_COLUMN_GAP_RAW, label: '標準' },
     airy: { row: 28, col: 24, label: '寬鬆' }
   };
   const preset = presets[mode] || presets.normal;
@@ -414,14 +417,6 @@ function renderKanban() {
           <div class="kanban-drag-content">
             <div class="kanban-thumb-shell">
               <img class="kanban-thumb" src="${reg.previewData || reg.thumb || reg.originalData}" alt="thumb" loading="lazy" decoding="async">
-            </div>
-            <div class="kanban-card-main">
-              <div class="kanban-chip-row">
-                <span class="kanban-type-chip ${reg.type === 'textCard' ? 'is-text' : ''}">${reg.type === 'textCard' ? '文字卡' : '圖片'}</span>
-                <span class="kanban-sub-chip">高清預覽</span>
-              </div>
-              <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : `圖片 ${itemIndex + 1}`}</div>
-              <div class="kanban-item-sub">按住縮圖區拖移排序</div>
             </div>
           </div>
           <div class="kanban-card-actions">
@@ -1910,8 +1905,8 @@ function buildWorkspacePayload() {
     savedAt: Date.now(),
     settings: {
       ...getSettings(),
-      rawDefaultGap: Number(els.defaultGap?.value || 12),
-      rawColumnGap: Number(els.columnGap?.value || 12),
+      rawDefaultGap: Number(els.defaultGap?.value || DEFAULT_ROW_GAP_RAW),
+      rawColumnGap: Number(els.columnGap?.value || DEFAULT_COLUMN_GAP_RAW),
       filename: currentFilename,
       isCustomFilename
     },
@@ -1945,10 +1940,10 @@ async function loadWorkspace() {
     initColumnsForLayout(els.layoutMode.value);
     const rawDefaultGap = workspace.settings?.rawDefaultGap;
     const rawColumnGap = workspace.settings?.rawColumnGap;
-    els.defaultGap.value = rawDefaultGap != null ? rawDefaultGap : 12;
-    els.columnGap.value = rawColumnGap != null ? rawColumnGap : 12;
+    els.defaultGap.value = rawDefaultGap != null ? rawDefaultGap : DEFAULT_ROW_GAP_RAW;
+    els.columnGap.value = rawColumnGap != null ? rawColumnGap : DEFAULT_COLUMN_GAP_RAW;
     syncSpacingControls();
-    els.frameStyle.value = workspace.settings?.frameStyle || 'editorial-luxe';
+    els.frameStyle.value = workspace.settings?.frameStyle || DEFAULT_FRAME_STYLE;
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
     els.innerBgColor.value = workspace.settings?.innerBgColor || '#ffffff';
     els.patternColor.value = workspace.settings?.patternColor || '#c9a227';
@@ -1986,8 +1981,8 @@ async function clearAll() {
     currentFilename = defaultFilename();
     els.layoutMode.value = '3';
     initColumnsForLayout('3');
-    els.defaultGap.value = 12; els.columnGap.value = 12; syncSpacingControls();
-    els.frameStyle.value = 'editorial-luxe';
+    els.defaultGap.value = DEFAULT_ROW_GAP_RAW; els.columnGap.value = DEFAULT_COLUMN_GAP_RAW; syncSpacingControls();
+    els.frameStyle.value = DEFAULT_FRAME_STYLE;
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';
     els.patternColor.value = '#c9a227';
@@ -2069,15 +2064,9 @@ function buildOverlay(card, rect) {
   const overlay = document.createElement('div');
   overlay.className = 'kanban-item kanban-drag-overlay';
   const thumbSrc = card.querySelector('.kanban-thumb')?.getAttribute('src') || '';
-  const title = card.querySelector('.kanban-item-title')?.textContent?.trim() || '圖片項目';
-  const sub = card.querySelector('.kanban-item-sub')?.textContent?.trim() || '';
   overlay.innerHTML = `
     <div class="kanban-card-frame">
       <div class="kanban-thumb-shell">${thumbSrc ? `<img class="kanban-thumb" src="${thumbSrc}" alt="thumb">` : ''}</div>
-      <div class="kanban-card-main">
-        <div class="kanban-item-title">${title}</div>
-        <div class="kanban-item-sub">${sub}</div>
-      </div>
     </div>
   `;
   overlay.style.position = 'fixed';
