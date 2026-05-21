@@ -420,8 +420,8 @@ function renderKanban() {
                 <span class="kanban-type-chip ${reg.type === 'textCard' ? 'is-text' : ''}">${reg.type === 'textCard' ? '文字卡' : '圖片'}</span>
                 <span class="kanban-sub-chip">高清預覽</span>
               </div>
-              <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : (() => { const sz = getImageNaturalSize(item.id); return sz ? `${sz.width}×${sz.height}` : '圖片項目'; })()}</div>
-              <div class="kanban-item-sub">左右滑看板；按住縮圖與文字區上下拖移</div>
+              <div class="kanban-item-title">${reg.type === 'textCard' ? '文字卡紙' : `圖片 ${itemIndex + 1}`}</div>
+              <div class="kanban-item-sub">按住縮圖區拖移排序</div>
             </div>
           </div>
           <div class="kanban-card-actions">
@@ -548,20 +548,42 @@ function drawCanvas() {
   const canvas = els.collageCanvas;
   const ctx = canvas.getContext('2d');
   const input = buildLayoutInput();
-  ctx.clearRect(0,0,A4_WIDTH,A4_HEIGHT);
-  const safeMargin = drawBackgroundAndFrame(ctx, input);
-  const outerPadding = 40;
+
+  ctx.clearRect(0, 0, A4_WIDTH, A4_HEIGHT);
+
+  let safeMargin = drawBackgroundAndFrame(ctx, input);
+
+  // 只處理 2 欄：減少 A4 外圍留白，令內容更集中
+  const isTwoColumn = input.layoutMode === '2';
+
+  if (isTwoColumn) {
+    safeMargin = Math.min(Number(safeMargin) || 90, 55);
+  }
+
+  const outerPadding = isTwoColumn ? 0 : 40;
+
   const safeX = safeMargin + outerPadding;
   const safeY = safeMargin + outerPadding;
-  const safeW = A4_WIDTH - (safeMargin + outerPadding) * 2;
-  const safeH = A4_HEIGHT - (safeMargin + outerPadding) * 2;
+  const safeW = A4_WIDTH - safeX * 2;
+  const safeH = A4_HEIGHT - safeY * 2;
+
+  // 防止 safeArea 計錯時成張圖消失
+  if (safeW <= 0 || safeH <= 0) {
+    console.warn('Invalid safeArea:', { safeX, safeY, safeW, safeH, safeMargin, outerPadding });
+    return;
+  }
+
+  input.safeArea = {
+    x: safeX,
+    y: safeY,
+    width: safeW,
+    height: safeH
+  };
 
   if (input.layoutMode === 'special_2_1') {
-    input.safeArea = { x: safeX, y: safeY, width: safeW, height: safeH };
     const layoutResult = computeSpecialDraftLayout(input);
     renderLayout(ctx, layoutResult, input);
   } else {
-    input.safeArea = { x: safeX, y: safeY, width: safeW, height: safeH };
     const layoutResult = computeLayout(input);
     renderLayout(ctx, layoutResult, input);
   }
@@ -1994,21 +2016,22 @@ async function clearAll() {
 }
 
 function downloadCanvas() {
-  const format = els.outputFormat?.value === 'jpeg' ? 'jpeg' : 'png';
+  if (!els.collageCanvas) return;
+
+  const format = els.exportFormat?.value || 'jpeg';
   const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-  const extension = format === 'jpeg' ? 'jpg' : 'png';
-  els.collageCanvas.toBlob(blob => {
-    if (!blob) {
-      showStatus('下載失敗，請再試一次', 'error');
-      return;
-    }
+  const ext = format === 'jpeg' ? 'jpg' : 'png';
+
+  els.collageCanvas.toBlob((blob) => {
+    if (!blob) return;
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${sanitizeFilename(currentFilename || defaultFilename())}.${extension}`;
-    document.body.appendChild(a); a.click(); a.remove();
-    showStatus(`${format === 'jpeg' ? 'JPEG' : 'PNG'} 已開始下載`, 'success');
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, mimeType, format === 'jpeg' ? 0.92 : undefined);
+    a.href = url;
+    a.download = `${sanitizeFilename(currentFilename || defaultFilename())}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, mimeType, 0.95);
 }
 
 
@@ -2077,7 +2100,7 @@ function updateOverlayPosition(clientX, clientY) {
   if (!dragRuntime.overlay) return;
   const x = clientX - dragRuntime.offsetX;
   const y = clientY - dragRuntime.offsetY;
-  dragRuntime.overlay.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  dragRuntime.overlay.style.transform = `translate3d(${x}px, ${y}px, 0) scale(1.015)`;
 }
 
 function clearDragClasses() {
@@ -2197,7 +2220,8 @@ function onKanbanPointerMove(e) {
   const dist = Math.hypot(dx, dy);
 
   if (!dragRuntime.active) {
-    if (dist < 4) return;
+    const dragThreshold = e.pointerType === 'touch' ? 10 : 4;
+    if (dist < dragThreshold) return;
     e.preventDefault();
     beginDrag(sourceCard, e.clientX, e.clientY);
   } else {
@@ -2251,9 +2275,15 @@ function onKanbanPointerUp(e) {
   document.removeEventListener('pointercancel', onKanbanPointerUp);
 
   if (dragRuntime.active && dragRuntime.moved) {
+    const droppedId = dragRuntime.sourceId;
     finalizeDrag();
     resetDragRuntime();
     renderKanban();
+    if (droppedId) {
+      const dropped = document.querySelector(`.kanban-item[data-id="${droppedId}"]`);
+      dropped?.classList.add('kanban-just-dropped');
+      window.setTimeout(() => dropped?.classList.remove('kanban-just-dropped'), 260);
+    }
     stateChanged();
   } else {
     resetDragRuntime();
