@@ -411,15 +411,15 @@ function renderKanban() {
       card.dataset.id = item.id;
       card.innerHTML = `
         <div class="kanban-card-frame">
-          <button class="kanban-drag-handle" type="button" title="按住拖曳手柄可排序">
-            <i class="fa-solid fa-grip-lines"></i>
-          </button>
           <div class="kanban-drag-content">
             <div class="kanban-thumb-shell">
               <img class="kanban-thumb" src="${reg.previewData || reg.thumb || reg.originalData}" alt="thumb" loading="lazy" decoding="async">
             </div>
           </div>
           <div class="kanban-card-actions">
+            <button class="kanban-mini-icon kanban-drag-handle" type="button" title="拖曳排序">
+              <i class="fa-solid fa-grip-lines"></i>
+            </button>
             <div class="kanban-order-pill">${itemIndex + 1}</div>
             <button class="kanban-mini-icon ${item.noGapBelow ? 'is-active' : ''} toggle-gap-btn" data-id="${item.id}" title="${item.noGapBelow ? '已貼齊' : '無縫貼齊'}">
               <i class="fa-solid fa-link"></i>

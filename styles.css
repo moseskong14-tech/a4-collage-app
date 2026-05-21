@@ -1304,3 +1304,178 @@ body.kanban-actually-dragging .kanban-item:not(.is-drag-source):not(.kanban-plac
     height:29px !important;
   }
 }
+
+/* V22 mobile three-column kanban */
+@media (max-width:640px){
+  #kanbanBoard{
+    gap:.3rem !important;
+    column-gap:.3rem !important;
+    overflow-x:hidden !important;
+    padding:.05rem 0 .45rem !important;
+    scroll-snap-type:none !important;
+  }
+  .kanban-col{
+    flex:0 0 calc((100% - .6rem) / 3) !important;
+    min-width:0 !important;
+    max-width:calc((100% - .6rem) / 3) !important;
+    padding:.36rem !important;
+    border-radius:12px !important;
+  }
+  .kanban-col-head{
+    align-items:flex-start !important;
+    gap:.22rem !important;
+    padding-bottom:.42rem !important;
+    margin-bottom:.45rem !important;
+  }
+  .kanban-col-title-row{
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    gap:.18rem !important;
+  }
+  .kanban-col-title{
+    font-size:.68rem !important;
+    line-height:1 !important;
+    white-space:normal !important;
+  }
+  .kanban-col-count{
+    min-width:1.15rem !important;
+    height:1.15rem !important;
+    border-radius:.45rem !important;
+    font-size:.62rem !important;
+  }
+  .kanban-align-pill{
+    padding:.24rem .28rem !important;
+    border-radius:.55rem !important;
+    font-size:.55rem !important;
+    line-height:1.05 !important;
+    gap:.18rem !important;
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+  }
+  .kanban-list{
+    gap:.42rem !important;
+    min-height:180px !important;
+  }
+  .kanban-item{
+    border-radius:12px !important;
+  }
+  .kanban-card-frame{
+    grid-template-columns:minmax(0,1fr) 28px !important;
+    gap:.22rem !important;
+    padding:.28rem !important;
+    align-items:start !important;
+  }
+  .kanban-drag-content{
+    min-height:132px !important;
+    padding:.22rem !important;
+    align-items:flex-start !important;
+  }
+  .kanban-thumb-shell{
+    width:100% !important;
+    max-width:none !important;
+    height:auto !important;
+    min-height:118px !important;
+    aspect-ratio:2 / 3 !important;
+  }
+  .kanban-thumb{
+    width:100% !important;
+    height:100% !important;
+    object-fit:contain !important;
+  }
+  .kanban-card-actions{
+    display:grid !important;
+    grid-template-columns:28px !important;
+    gap:.22rem !important;
+    align-self:start !important;
+    justify-content:end !important;
+  }
+.kanban-order-pill,
+.kanban-card-actions .kanban-drag-handle,
+.kanban-mini-icon,
+.kanban-mini-spacer,
+.width-percent-input{
+    width:28px !important;
+    min-width:28px !important;
+    height:28px !important;
+    min-height:28px !important;
+    border-radius:8px !important;
+  font-size:.62rem !important;
+}
+.kanban-card-actions .kanban-drag-handle{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-height:28px !important;
+  padding:0 !important;
+  writing-mode:horizontal-tb !important;
+}
+  .kanban-order-pill{
+    grid-column:auto !important;
+    padding:0 !important;
+  }
+  .width-percent-input{
+    padding:0 !important;
+    text-align:center !important;
+  }
+}
+
+@media (max-width:380px){
+  .kanban-col{
+    padding:.3rem !important;
+  }
+  .kanban-card-frame{
+    grid-template-columns:minmax(0,1fr) 26px !important;
+    gap:.18rem !important;
+    padding:.24rem !important;
+  }
+  .kanban-card-actions{
+    grid-template-columns:26px !important;
+    gap:.18rem !important;
+  }
+  .kanban-order-pill,
+  .kanban-card-actions .kanban-drag-handle,
+  .kanban-mini-icon,
+  .kanban-mini-spacer,
+  .width-percent-input{
+    width:26px !important;
+    min-width:26px !important;
+    height:26px !important;
+    min-height:26px !important;
+  }
+  .kanban-drag-content{
+    min-height:122px !important;
+  }
+  .kanban-thumb-shell{
+    min-height:108px !important;
+  }
+}
+
+.kanban-card-actions .kanban-drag-handle{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:32px !important;
+  min-width:32px !important;
+  height:32px !important;
+  min-height:32px !important;
+  padding:0 !important;
+  writing-mode:horizontal-tb !important;
+}
+
+@media (max-width:640px){
+  .kanban-card-actions .kanban-drag-handle{
+    width:28px !important;
+    min-width:28px !important;
+    height:28px !important;
+    min-height:28px !important;
+  }
+}
+
+@media (max-width:380px){
+  .kanban-card-actions .kanban-drag-handle{
+    width:26px !important;
+    min-width:26px !important;
+    height:26px !important;
+    min-height:26px !important;
+  }
+}
