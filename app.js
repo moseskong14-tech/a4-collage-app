@@ -156,9 +156,17 @@ function bindEvents() {
     renderKanban();
     stateChanged();
   });
-  ['input','change'].forEach(evtName => {
-    els.defaultGap.addEventListener(evtName, syncSpacingControls);
-    els.columnGap.addEventListener(evtName, syncSpacingControls);
+  [els.defaultGap, els.columnGap].forEach(input => {
+    input.addEventListener('input', () => syncSpacingControls({ requestRender: true }));
+    input.addEventListener('change', () => syncSpacingControls({ requestRender: true, requestSave: true }));
+  });
+  els.kanbanBoard.addEventListener('click', onKanbanBoardClick);
+  els.kanbanBoard.addEventListener('change', onKanbanBoardChange);
+  els.kanbanBoard.addEventListener('pointerdown', onKanbanPointerDown, { passive: true });
+  document.addEventListener('keydown', onKanbanKeyDown);
+  window.addEventListener('blur', cancelKanbanDrag);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelKanbanDrag();
   });
   if (els.spacingMode) els.spacingMode.addEventListener('change', () => applySpacingMode(els.spacingMode.value, true));
   if (els.authorName) els.authorName.addEventListener('input', triggerAutoSave);
@@ -258,14 +266,23 @@ function stateChanged() {
   triggerAutoSave();
 }
 
-function syncSpacingControls() {
+function updateKanbanSpacingVars() {
   const rowGap = getEffectiveRowGap(els.defaultGap.value);
   const colGap = getEffectiveColumnGap(els.columnGap.value);
+  if (els.kanbanBoard) {
+    els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(rowGap * 0.5))}px`);
+    els.kanbanBoard.style.setProperty('--kanban-col-gap', `${colGap}px`);
+  }
+  return { rowGap, colGap };
+}
+
+function syncSpacingControls(options = {}) {
+  const { requestRender: shouldRender = true, requestSave: shouldSave = false } = options;
+  const { rowGap, colGap } = updateKanbanSpacingVars();
   els.gapValue.textContent = `${rowGap} px`;
   els.columnGapValue.textContent = `${colGap} px`;
-  renderKanban();
-  throttledDrawCanvas();
-  triggerAutoSave();
+  if (shouldRender) requestRender();
+  if (shouldSave) requestSave();
 }
 
 function applySpacingMode(mode, notify=false) {
@@ -277,7 +294,7 @@ function applySpacingMode(mode, notify=false) {
   const preset = presets[mode] || presets.normal;
   els.defaultGap.value = preset.row;
   els.columnGap.value = preset.col;
-  syncSpacingControls();
+  syncSpacingControls({ requestRender: true, requestSave: true });
   if (notify) showStatus(`已套用${preset.label}留白`, 'success');
 }
 
@@ -384,8 +401,7 @@ function renderKanban() {
   els.kanbanBoard.innerHTML = '';
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
   els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-0`;
-  els.kanbanBoard.style.setProperty('--kanban-col-gap', '0px');
-  els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(getEffectiveRowGap(els.defaultGap.value) * 0.5))}px`);
+  updateKanbanSpacingVars();
 
   columnsState.forEach((col, colIndex) => {
     const wrap = document.createElement('div');
@@ -444,13 +460,27 @@ function renderKanban() {
     // removed Sortable
   });
 
-  document.querySelectorAll('.align-btn').forEach(btn => btn.addEventListener('click', () => cycleAlign(Number(btn.dataset.col))));
-  document.querySelectorAll('.toggle-gap-btn').forEach(btn => btn.addEventListener('click', () => toggleNoGap(btn.dataset.id)));
-  document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', () => deleteItem(btn.dataset.id)));
-  document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => openImageTextEditor(btn.dataset.id)));
-  document.querySelectorAll('.pin-btn').forEach(btn => btn.addEventListener('click', () => togglePinned(btn.dataset.id)));
-  document.querySelectorAll('.width-ratio-btn').forEach(btn => btn.addEventListener('click', () => toggleWidthRatio(btn.dataset.id)));
-  document.querySelectorAll('.width-percent-input').forEach(input => input.addEventListener('change', () => setWidthRatioPercent(input.dataset.id, input.value)));
+}
+
+function onKanbanBoardClick(e) {
+  const alignBtn = e.target.closest('.align-btn');
+  if (alignBtn && els.kanbanBoard.contains(alignBtn)) return cycleAlign(Number(alignBtn.dataset.col));
+  const gapBtn = e.target.closest('.toggle-gap-btn');
+  if (gapBtn && els.kanbanBoard.contains(gapBtn)) return toggleNoGap(gapBtn.dataset.id);
+  const deleteBtn = e.target.closest('.delete-btn');
+  if (deleteBtn && els.kanbanBoard.contains(deleteBtn)) return deleteItem(deleteBtn.dataset.id);
+  const editBtn = e.target.closest('.edit-btn');
+  if (editBtn && els.kanbanBoard.contains(editBtn)) return openImageTextEditor(editBtn.dataset.id);
+  const pinBtn = e.target.closest('.pin-btn');
+  if (pinBtn && els.kanbanBoard.contains(pinBtn)) return togglePinned(pinBtn.dataset.id);
+  const widthBtn = e.target.closest('.width-ratio-btn');
+  if (widthBtn && els.kanbanBoard.contains(widthBtn)) return toggleWidthRatio(widthBtn.dataset.id);
+}
+
+function onKanbanBoardChange(e) {
+  const input = e.target.closest('.width-percent-input');
+  if (!input || !els.kanbanBoard.contains(input)) return;
+  setWidthRatioPercent(input.dataset.id, input.value);
 }
 
 function clearDropIndicators() {
@@ -2033,6 +2063,7 @@ function downloadCanvas() {
 // ===== CUSTOM DRAG ENGINE v1.2 =====
 const dragRuntime = {
   pointerId: null,
+  captureElement: null,
   sourceId: null,
   sourceCol: -1,
   sourceIndex: -1,
@@ -2045,10 +2076,18 @@ const dragRuntime = {
   startY: 0,
   targetCol: -1,
   targetIndex: -1,
-  moved: false
+  moved: false,
+  lastClientX: 0,
+  lastClientY: 0,
+  dragRafId: null,
+  lastDropKey: null,
+  lastDropList: null,
+  lastDropRelated: null,
+  lastDropAfter: null
 };
 
 function isInteractiveTarget(el) {
+  if (el.closest('.kanban-drag-handle')) return false;
   return !!el.closest('.kanban-card-actions, .align-btn, button, input, textarea, select, a, label');
 }
 
@@ -2098,6 +2137,15 @@ function clearDragClasses() {
   document.querySelectorAll('.kanban-item').forEach(item => item.classList.remove('drop-before', 'drop-after', 'is-drag-source'));
 }
 
+function clearCurrentDropTarget() {
+  dragRuntime.lastDropList?.classList.remove('is-drop-target');
+  dragRuntime.lastDropRelated?.classList.remove(dragRuntime.lastDropAfter ? 'drop-after' : 'drop-before');
+  dragRuntime.lastDropKey = null;
+  dragRuntime.lastDropList = null;
+  dragRuntime.lastDropRelated = null;
+  dragRuntime.lastDropAfter = null;
+}
+
 function findItemPositionById(id) {
   for (let c = 0; c < columnsState.length; c++) {
     const idx = columnsState[c].items.findIndex(item => item.id === id);
@@ -2142,8 +2190,10 @@ function getDropPosition(clientX, clientY) {
 
 function movePlaceholder(pos) {
   if (!pos || !dragRuntime.placeholder) return;
-  document.querySelectorAll('.kanban-list').forEach(list => list.classList.remove('is-drop-target'));
-  document.querySelectorAll('.kanban-item').forEach(item => item.classList.remove('drop-before', 'drop-after'));
+  const dropKey = `${pos.col}:${pos.related?.dataset.id || '__end__'}:${pos.after ? 'after' : 'before'}`;
+  if (dropKey === dragRuntime.lastDropKey) return;
+  clearCurrentDropTarget();
+
   pos.list.classList.add('is-drop-target');
 
   if (pos.related) {
@@ -2155,13 +2205,20 @@ function movePlaceholder(pos) {
 
   dragRuntime.targetCol = pos.col;
   dragRuntime.targetIndex = pos.insertIndex;
+  dragRuntime.lastDropKey = dropKey;
+  dragRuntime.lastDropList = pos.list;
+  dragRuntime.lastDropRelated = pos.related;
+  dragRuntime.lastDropAfter = pos.after;
 }
 
 function onKanbanPointerDown(e) {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  if (isInteractiveTarget(e.target)) return;
-  const handle = e.target.closest('.kanban-drag-content, .kanban-drag-handle');
-  if (!handle) return;
+  const dragHandle = e.target.closest('.kanban-drag-handle');
+  const dragContent = e.target.closest('.kanban-drag-content');
+  if (e.pointerType === 'touch' && !dragHandle) return;
+  if (!dragHandle && isInteractiveTarget(e.target)) return;
+  const handle = dragHandle || dragContent;
+  if (!handle || !els.kanbanBoard.contains(handle)) return;
   const card = e.target.closest('.kanban-item');
   if (!card) return;
 
@@ -2180,11 +2237,14 @@ function onKanbanPointerDown(e) {
   dragRuntime.offsetY = e.clientY - rect.top;
   dragRuntime.active = false;
   dragRuntime.moved = false;
+  dragRuntime.lastClientX = e.clientX;
+  dragRuntime.lastClientY = e.clientY;
+  dragRuntime.captureElement = handle;
 
   try { handle.setPointerCapture?.(e.pointerId); } catch {}
   document.addEventListener('pointermove', onKanbanPointerMove, { passive: false });
   document.addEventListener('pointerup', onKanbanPointerUp, { passive: false, once: false });
-  document.addEventListener('pointercancel', onKanbanPointerUp, { passive: false, once: false });
+  document.addEventListener('pointercancel', onKanbanPointerCancel, { passive: false, once: false });
 }
 
 function beginDrag(card, clientX, clientY) {
@@ -2193,11 +2253,63 @@ function beginDrag(card, clientX, clientY) {
   dragRuntime.overlay = buildOverlay(card, rect);
   dragRuntime.placeholder = buildPlaceholder(rect);
   card.classList.add('is-drag-source');
-  card.style.visibility = 'hidden';
+  card.style.display = 'none';
   document.body.appendChild(dragRuntime.overlay);
   card.parentElement?.insertBefore(dragRuntime.placeholder, card.nextSibling);
   document.body.classList.add('kanban-drag-active', 'kanban-sort-lock', 'kanban-actually-dragging');
   updateOverlayPosition(clientX, clientY);
+}
+
+function scheduleKanbanDragFrame() {
+  if (dragRuntime.dragRafId != null) return;
+  dragRuntime.dragRafId = requestAnimationFrame(flushKanbanDragFrame);
+}
+
+function updateKanbanAutoScroll(clientX, clientY) {
+  let scrolled = false;
+  const viewportEdge = 56;
+  if (clientY < viewportEdge) {
+    const speed = Math.max(-18, Math.round((clientY - viewportEdge) * 0.22));
+    if (speed) {
+      window.scrollBy(0, speed);
+      scrolled = true;
+    }
+  } else if (clientY > window.innerHeight - viewportEdge) {
+    const speed = Math.min(18, Math.round((clientY - (window.innerHeight - viewportEdge)) * 0.22));
+    if (speed) {
+      window.scrollBy(0, speed);
+      scrolled = true;
+    }
+  }
+
+  const board = els.kanbanBoard;
+  if (!board || board.scrollWidth <= board.clientWidth) return scrolled;
+  const rect = board.getBoundingClientRect();
+  const boardEdge = 48;
+  if (clientX < rect.left + boardEdge) {
+    const speed = Math.max(-16, Math.round((clientX - (rect.left + boardEdge)) * 0.2));
+    if (speed) {
+      board.scrollLeft += speed;
+      scrolled = true;
+    }
+  } else if (clientX > rect.right - boardEdge) {
+    const speed = Math.min(16, Math.round((clientX - (rect.right - boardEdge)) * 0.2));
+    if (speed) {
+      board.scrollLeft += speed;
+      scrolled = true;
+    }
+  }
+  return scrolled;
+}
+
+function flushKanbanDragFrame() {
+  dragRuntime.dragRafId = null;
+  if (!dragRuntime.active) return;
+  const { lastClientX, lastClientY } = dragRuntime;
+  updateOverlayPosition(lastClientX, lastClientY);
+  const pos = getDropPosition(lastClientX, lastClientY);
+  if (pos) movePlaceholder(pos);
+  if (updateKanbanAutoScroll(lastClientX, lastClientY)) scheduleKanbanDragFrame();
 }
 
 function onKanbanPointerMove(e) {
@@ -2218,9 +2330,9 @@ function onKanbanPointerMove(e) {
   }
 
   dragRuntime.moved = true;
-  updateOverlayPosition(e.clientX, e.clientY);
-  const pos = getDropPosition(e.clientX, e.clientY);
-  if (pos) movePlaceholder(pos);
+  dragRuntime.lastClientX = e.clientX;
+  dragRuntime.lastClientY = e.clientY;
+  scheduleKanbanDragFrame();
 }
 
 function finalizeDrag() {
@@ -2240,7 +2352,22 @@ function finalizeDrag() {
 
 function resetDragRuntime() {
   const prevSourceId = dragRuntime.sourceId;
+  const prevPointerId = dragRuntime.pointerId;
+  const prevCaptureElement = dragRuntime.captureElement;
+  if (dragRuntime.dragRafId != null) {
+    cancelAnimationFrame(dragRuntime.dragRafId);
+    dragRuntime.dragRafId = null;
+  }
+  try {
+    if (prevPointerId != null && prevCaptureElement?.hasPointerCapture?.(prevPointerId)) {
+      prevCaptureElement.releasePointerCapture(prevPointerId);
+    }
+  } catch {}
+  document.removeEventListener('pointermove', onKanbanPointerMove);
+  document.removeEventListener('pointerup', onKanbanPointerUp);
+  document.removeEventListener('pointercancel', onKanbanPointerCancel);
   dragRuntime.pointerId = null;
+  dragRuntime.captureElement = null;
   dragRuntime.sourceId = null;
   dragRuntime.sourceCol = -1;
   dragRuntime.sourceIndex = -1;
@@ -2253,17 +2380,19 @@ function resetDragRuntime() {
   dragRuntime.overlay = null;
   dragRuntime.placeholder = null;
   const src = prevSourceId ? document.querySelector(`.kanban-item[data-id="${prevSourceId}"]`) : null;
-  if (src) src.style.visibility = '';
+  if (src) src.style.display = '';
+  clearCurrentDropTarget();
   clearDragClasses();
 }
 
 function onKanbanPointerUp(e) {
   if (dragRuntime.pointerId !== null && e.pointerId !== dragRuntime.pointerId) return;
-  document.removeEventListener('pointermove', onKanbanPointerMove);
-  document.removeEventListener('pointerup', onKanbanPointerUp);
-  document.removeEventListener('pointercancel', onKanbanPointerUp);
 
   if (dragRuntime.active && dragRuntime.moved) {
+    if (dragRuntime.dragRafId != null) {
+      cancelAnimationFrame(dragRuntime.dragRafId);
+      flushKanbanDragFrame();
+    }
     const droppedId = dragRuntime.sourceId;
     finalizeDrag();
     resetDragRuntime();
@@ -2279,5 +2408,20 @@ function onKanbanPointerUp(e) {
   }
 }
 
-document.addEventListener('pointerdown', onKanbanPointerDown, { passive: true });
+function onKanbanPointerCancel(e) {
+  if (dragRuntime.pointerId !== null && e.pointerId !== dragRuntime.pointerId) return;
+  resetDragRuntime();
+}
+
+function cancelKanbanDrag() {
+  if (dragRuntime.pointerId == null && !dragRuntime.active) return;
+  resetDragRuntime();
+}
+
+function onKanbanKeyDown(e) {
+  if (e.key !== 'Escape') return;
+  if (dragRuntime.pointerId == null && !dragRuntime.active) return;
+  e.preventDefault();
+  resetDragRuntime();
+}
 // ===== END CUSTOM DRAG ENGINE v1.2 =====
