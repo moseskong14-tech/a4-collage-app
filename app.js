@@ -22,7 +22,9 @@ let pendingSaveRequested = false;
 let resetInProgress = false;
 let rafPending = false;
 let activeImageEditId = null;
+let activeWidthRatioItemId = null;
 let previewBaseImage = null;
+let lastHistoryTouchActionAt = 0;
 const historyState = {
   past: [],
   future: [],
@@ -126,6 +128,7 @@ function cacheEls() {
     'kanbanBoard','saveDot','saveText','filenameInput','outputFormat','downloadBtn','loading','collageCanvas',
     'textCardModal','textCardPreview','textCardContent','textCardTextColor','textCardBgColor','textCardFontSize','textCardAlignH','textCardAlignV','addTextCardBtn',
     'imageTextModal','imageTextPreview','imageTextContent','imageTextColor','imageTextSize','imageTextAlign','applyImageTextBtn',
+    'widthRatioModal','widthRatioInput','confirmWidthRatioBtn','cancelWidthRatioBtn','closeWidthRatioModalBtn',
     'imageInputMobileProxy','mobileTextCardBtn','mobileDownloadBtn','autoBalanceBtn','sampleColorBtn','undoBtn','redoBtn'
   ].forEach(id => els[id] = document.getElementById(id));
 }
@@ -218,8 +221,30 @@ function bindEvents() {
   els.addTextCardBtn.addEventListener('click', addTextCardToBoard);
   els.resetBtn.addEventListener('click', clearAll);
   if (els.autoBalanceBtn) els.autoBalanceBtn.addEventListener('click', handleAutoBalance);
-  if (els.undoBtn) els.undoBtn.addEventListener('click', undo);
-  if (els.redoBtn) els.redoBtn.addEventListener('click', redo);
+  bindHistoryButton(els.undoBtn, 'undo');
+  bindHistoryButton(els.redoBtn, 'redo');
+  if (els.confirmWidthRatioBtn) {
+    els.confirmWidthRatioBtn.addEventListener('click', confirmWidthRatioModal);
+  }
+  if (els.cancelWidthRatioBtn) {
+    els.cancelWidthRatioBtn.addEventListener('click', closeWidthRatioModal);
+  }
+  if (els.closeWidthRatioModalBtn) {
+    els.closeWidthRatioModalBtn.addEventListener('click', closeWidthRatioModal);
+  }
+  if (els.widthRatioInput) {
+    els.widthRatioInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirmWidthRatioModal();
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeWidthRatioModal();
+      }
+    });
+  }
   if (els.beautifyBtn) els.beautifyBtn.addEventListener('click', applyBeautifyPreset);
   if (els.sampleColorBtn) els.sampleColorBtn.addEventListener('click', () => {
     pushHistorySnapshot();
@@ -426,12 +451,52 @@ function redo() {
   showStatus('已重做操作', 'info');
 }
 
+function runHistoryAction(action) {
+  if (action === 'undo') {
+    if (!historyState.past.length) return;
+    undo();
+    return;
+  }
+
+  if (action === 'redo') {
+    if (!historyState.future.length) return;
+    redo();
+  }
+}
+
+function bindHistoryButton(button, action) {
+  if (!button) return;
+
+  button.addEventListener('pointerup', event => {
+    if (event.pointerType !== 'touch') return;
+    if (button.disabled) return;
+
+    event.preventDefault();
+    lastHistoryTouchActionAt = Date.now();
+    runHistoryAction(action);
+  });
+
+  button.addEventListener('click', event => {
+    if (button.disabled) return;
+
+    const isSyntheticFollowupClick =
+      Date.now() - lastHistoryTouchActionAt < 700;
+
+    if (isSyntheticFollowupClick) {
+      event.preventDefault();
+      return;
+    }
+
+    runHistoryAction(action);
+  });
+}
+
 function isEditableShortcutTarget(target) {
   return !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
 }
 
 function hasOpenModal() {
-  return [els.textCardModal, els.imageTextModal].some(modal => modal && !modal.classList.contains('hidden'));
+  return [els.textCardModal, els.imageTextModal, els.widthRatioModal].some(modal => modal && !modal.classList.contains('hidden'));
 }
 
 function updateKanbanSpacingVars() {
@@ -677,7 +742,7 @@ function onKanbanBoardClick(e) {
   const editBtn = e.target.closest('.edit-btn');
   if (editBtn && els.kanbanBoard.contains(editBtn)) return openImageTextEditor(editBtn.dataset.id);
   const widthBtn = e.target.closest('.width-ratio-btn');
-  if (widthBtn && els.kanbanBoard.contains(widthBtn)) return promptWidthRatio(widthBtn.dataset.id);
+  if (widthBtn && els.kanbanBoard.contains(widthBtn)) return openWidthRatioModal(widthBtn.dataset.id);
 }
 
 function clearDropIndicators() {
@@ -705,36 +770,74 @@ function toggleNoGap(id) {
   stateChanged();
 }
 
-function promptWidthRatio(id) {
+function findKanbanItemById(id) {
   for (const col of columnsState) {
-    const item = col.items.find(x => x.id === id);
-    if (item) {
-      const currentPercent = Math.round((item.widthRatio ?? 1) * 100);
-      const answer = window.prompt(
-        '輸入圖片寬度百分比（30–100）',
-        String(currentPercent)
-      );
-
-      if (answer === null) return;
-
-      const trimmed = answer.trim();
-      const parsed = Number(trimmed);
-      if (trimmed === '' || !Number.isFinite(parsed)) {
-        showStatus('請輸入 30 至 100 的數字', 'warning');
-        return;
-      }
-
-      const percent = Math.min(100, Math.max(30, Math.round(parsed)));
-      if (percent === currentPercent) return;
-
-      pushHistorySnapshot();
-      item.widthRatio = percent / 100;
-      renderKanban();
-      stateChanged();
-      showStatus(`已設定圖片寬度為 ${percent}%`, 'success');
-      break;
-    }
+    const item = col.items.find(entry => entry.id === id);
+    if (item) return item;
   }
+  return null;
+}
+
+function openWidthRatioModal(id) {
+  const item = findKanbanItemById(id);
+  if (!item || !els.widthRatioModal || !els.widthRatioInput) return;
+
+  activeWidthRatioItemId = id;
+
+  const currentPercent = Math.round((item.widthRatio ?? 1) * 100);
+
+  els.widthRatioInput.value = String(currentPercent);
+  els.widthRatioModal.classList.remove('hidden');
+  els.widthRatioModal.setAttribute('aria-hidden', 'false');
+
+  requestAnimationFrame(() => {
+    els.widthRatioInput.focus();
+    els.widthRatioInput.select();
+  });
+}
+
+function closeWidthRatioModal() {
+  if (!els.widthRatioModal) return;
+
+  els.widthRatioModal.classList.add('hidden');
+  els.widthRatioModal.setAttribute('aria-hidden', 'true');
+  activeWidthRatioItemId = null;
+}
+
+function confirmWidthRatioModal() {
+  const id = activeWidthRatioItemId;
+  const item = findKanbanItemById(id);
+
+  if (!id || !item || !els.widthRatioInput) {
+    closeWidthRatioModal();
+    return;
+  }
+
+  const raw = String(els.widthRatioInput.value || '').trim();
+  const parsed = Number(raw);
+
+  if (raw === '' || !Number.isFinite(parsed)) {
+    showStatus('請輸入 30 至 100 的數字', 'warning');
+    els.widthRatioInput.focus();
+    els.widthRatioInput.select();
+    return;
+  }
+
+  const currentPercent = Math.round((item.widthRatio ?? 1) * 100);
+  const percent = Math.min(100, Math.max(30, Math.round(parsed)));
+
+  if (percent === currentPercent) {
+    closeWidthRatioModal();
+    return;
+  }
+
+  pushHistorySnapshot();
+  item.widthRatio = percent / 100;
+
+  closeWidthRatioModal();
+  renderKanban();
+  stateChanged();
+  showStatus(`已設定圖片寬度為 ${percent}%`, 'success');
 }
 
 function deleteItem(id) {

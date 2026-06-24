@@ -326,6 +326,67 @@
     </div>
   </div>
 
+  <div id="widthRatioModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-panel width-ratio-modal-panel">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-bold">圖片寬度</h3>
+        <button
+          id="closeWidthRatioModalBtn"
+          type="button"
+          class="icon-btn"
+          aria-label="取消設定圖片寬度"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="text-sm text-slate-500 mb-3">
+        輸入圖片在所屬欄位中的寬度百分比。
+      </p>
+
+      <label class="field-label" for="widthRatioInput">
+        寬度百分比
+      </label>
+
+      <div class="width-ratio-input-row">
+        <input
+          id="widthRatioInput"
+          class="field-input"
+          type="number"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          min="30"
+          max="100"
+          step="1"
+          enterkeyhint="done"
+          autocomplete="off"
+        />
+        <span class="width-ratio-unit">%</span>
+      </div>
+
+      <p class="width-ratio-help">
+        可輸入 30–100；例如輸入 68 即代表欄位寬度的 68%。
+      </p>
+
+      <div class="width-ratio-modal-actions">
+        <button
+          id="cancelWidthRatioBtn"
+          type="button"
+          class="btn-secondary"
+        >
+          取消
+        </button>
+        <button
+          id="confirmWidthRatioBtn"
+          type="button"
+          class="btn-primary"
+        >
+          確認
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="mobile-bottom-dock lg:hidden">
     <label class="mobile-dock-btn cursor-pointer">
       <i class="fa-solid fa-images"></i><span>加圖</span>

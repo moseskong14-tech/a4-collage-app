@@ -22,11 +22,14 @@ body{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 
   font-size:.78rem;
   font-weight:800;
   box-shadow:0 4px 10px rgba(148,163,184,.10);
-  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  -webkit-user-select:none;
 }
+.history-action-btn:not(:disabled){touch-action:manipulation}
 .history-action-btn:hover:not(:disabled){border-color:#a5b4fc;color:#4f46e5;background:#eef2ff}
 .history-action-btn:active:not(:disabled){transform:scale(.97)}
-.history-action-btn:disabled{opacity:.42;cursor:not-allowed;box-shadow:none}
+.history-action-btn:disabled{opacity:.42;cursor:not-allowed;box-shadow:none;pointer-events:none}
 .field-label{display:block;font-size:.82rem;font-weight:700;color:#475569;margin-bottom:.35rem}
 .field-input{width:100%;border:1px solid #cbd5e1;border-radius:.9rem;padding:.7rem .9rem;background:#fff}
 .field-input:focus{outline:none;border-color:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.18)}
@@ -48,6 +51,13 @@ body{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 
 
 .modal{position:fixed;inset:0;background:rgba(15,23,42,.9);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:50}
 .modal-panel{width:min(100%,1200px);max-height:95vh;overflow:auto;background:#fff;border-radius:1.5rem;padding:1.25rem}
+.width-ratio-modal-panel{width:min(100%,360px)}
+.width-ratio-input-row{display:flex;align-items:center;gap:.5rem}
+.width-ratio-input-row .field-input{min-height:3.2rem;font-size:1.3rem;font-weight:800;text-align:center}
+.width-ratio-unit{flex:0 0 auto;font-size:1.3rem;font-weight:900;color:#475569}
+.width-ratio-help{margin-top:.7rem;color:#64748b;font-size:.82rem;line-height:1.45}
+.width-ratio-modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-top:1rem}
+.width-ratio-modal-actions button{min-height:2.8rem;justify-content:center}
 .loader{width:34px;height:34px;border:4px solid #cbd5e1;border-top-color:#0f172a;border-radius:999px;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -62,6 +72,9 @@ body{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 
   .history-action-btn{min-height:2rem;padding:.42rem .52rem;font-size:.62rem}
   .modal{padding:.5rem}
   .modal-panel{padding:1rem;border-radius:1rem}
+  .width-ratio-modal-panel{width:calc(100% - 1.5rem);max-width:none}
+  .width-ratio-input-row .field-input{min-height:3.45rem;font-size:1.45rem}
+  .width-ratio-modal-actions button{min-height:3.1rem}
 }
 
 html{scroll-behavior:smooth}
