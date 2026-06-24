@@ -2419,26 +2419,28 @@ function buildPlaceholder(cardRect) {
 
 function buildOverlay(card, rect) {
   const overlay = document.createElement('div');
-  overlay.className = 'kanban-item kanban-drag-overlay';
-  const thumbSrc = card.querySelector('.kanban-thumb')?.getAttribute('src') || '';
-  overlay.innerHTML = `
-    <div class="kanban-card-frame">
-      <div class="kanban-thumb-shell">${thumbSrc ? `<img class="kanban-thumb" src="${thumbSrc}" alt="thumb">` : ''}</div>
-    </div>
-  `;
+  overlay.className = 'a4-drag-preview';
+
+  const thumbSrc =
+    card.querySelector('.kanban-thumb')?.getAttribute('src') || '';
+
+  overlay.innerHTML = thumbSrc
+    ? `<img class="a4-drag-preview-image" src="${thumbSrc}" alt="">`
+    : '';
+
   overlay.style.position = 'fixed';
-  overlay.style.left = '0px';
-  overlay.style.top = '0px';
-  overlay.style.width = `${Math.round(rect.width)}px`;
-  overlay.style.maxWidth = `${Math.round(rect.width)}px`;
-  overlay.style.overflow = 'hidden';
-  overlay.style.borderRadius = '1.25rem';
-  overlay.style.boxSizing = 'border-box';
+  overlay.style.left = '0';
+  overlay.style.top = '0';
+  overlay.style.width = '96px';
+  overlay.style.height = '96px';
+  overlay.style.margin = '0';
+  overlay.style.padding = '0';
   overlay.style.pointerEvents = 'none';
   overlay.style.zIndex = '99999';
-  overlay.style.margin = '0';
   overlay.style.opacity = '0.97';
   overlay.style.transform = 'translate3d(-9999px,-9999px,0)';
+  overlay.style.boxSizing = 'border-box';
+
   return overlay;
 }
 
