@@ -526,3 +526,48 @@ body.kanban-actually-dragging .kanban-item:not(.is-drag-source):not(.kanban-plac
 @media (prefers-reduced-motion:reduce){
   .kanban-just-dropped,body.kanban-actually-dragging .kanban-item:not(.is-drag-source):not(.kanban-placeholder){animation:none !important;transition:none !important;}
 }
+
+/* Mobile drag overlay isolation */
+
+@media (max-width:1023px){
+  .kanban-drag-overlay{
+    display:block !important;
+    width:96px !important;
+    min-width:96px !important;
+    max-width:96px !important;
+    height:96px !important;
+    min-height:96px !important;
+    max-height:96px !important;
+    overflow:hidden !important;
+    border-radius:.72rem !important;
+  }
+
+  .kanban-drag-overlay .kanban-card-frame{
+    display:block !important;
+    width:100% !important;
+    height:100% !important;
+    min-width:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+  }
+
+  .kanban-drag-overlay .kanban-thumb-shell{
+    display:block !important;
+    width:96px !important;
+    min-width:96px !important;
+    max-width:96px !important;
+    height:96px !important;
+    min-height:96px !important;
+    max-height:96px !important;
+    aspect-ratio:1 / 1 !important;
+    overflow:hidden !important;
+    border-radius:.72rem !important;
+  }
+
+  .kanban-drag-overlay .kanban-thumb{
+    display:block !important;
+    width:100% !important;
+    height:100% !important;
+    object-fit:contain !important;
+  }
+}
