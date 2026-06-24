@@ -339,6 +339,86 @@ input[type="range"]{accent-color:#2563eb}
 #globalBgPalette .swatch,#innerBgPalette .swatch,#patternPalette .swatch,#globalBgPalette .color-picker,#innerBgPalette .color-picker,#patternPalette .color-picker{width:2.85rem !important; height:2.85rem !important; min-width:2.85rem !important; aspect-ratio:1 / 1 !important; border-radius:999px !important;}
 @media (max-width:640px){#globalBgPalette .swatch,#innerBgPalette .swatch,#patternPalette .swatch,#globalBgPalette .color-picker,#innerBgPalette .color-picker,#patternPalette .color-picker{width:2.65rem !important; height:2.65rem !important; min-width:2.65rem !important;}}
 
+/* Mobile board header controls */
+@media (max-width: 640px) {
+  #boardSection .board-header{
+    position:relative !important;
+    display:block !important;
+    min-height:3.5rem !important;
+    margin-bottom:.55rem !important;
+    padding-top:0 !important;
+  }
+
+  #boardSection .board-header-top{
+    display:block !important;
+    min-height:1.85rem !important;
+    padding-right:6.25rem !important;
+  }
+
+  #boardSection .board-header-top h2{
+    display:block !important;
+    width:100% !important;
+    min-width:0 !important;
+    margin:0 !important;
+    padding:0 !important;
+    font-size:.9rem !important;
+    line-height:1.85rem !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+
+  #boardSection .board-history-actions{
+    position:absolute !important;
+    top:0 !important;
+    right:0 !important;
+    display:flex !important;
+    flex-direction:row !important;
+    align-items:center !important;
+    justify-content:flex-end !important;
+    flex-wrap:nowrap !important;
+    width:auto !important;
+    gap:.24rem !important;
+    margin:0 !important;
+    padding:0 !important;
+    z-index:2 !important;
+  }
+
+  #boardSection .board-header-hint{
+    display:block !important;
+    margin-top:.24rem !important;
+    font-size:.56rem !important;
+    line-height:1.15 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+
+  #boardSection .history-action-btn,
+  #boardSection #autoBalanceBtn{
+    width:1.85rem !important;
+    min-width:1.85rem !important;
+    height:1.85rem !important;
+    min-height:1.85rem !important;
+    padding:0 !important;
+    margin:0 !important;
+    border-radius:.55rem !important;
+    flex:0 0 1.85rem !important;
+  }
+
+  #boardSection .history-action-btn span{
+    display:none !important;
+  }
+
+  #boardSection #autoBalanceBtn{
+    font-size:0 !important;
+  }
+
+  #boardSection #autoBalanceBtn i{
+    font-size:.72rem !important;
+  }
+}
+
 /* V15 hard lock palette rows */
 #globalBgPalette,#innerBgPalette,#patternPalette{
   display:flex !important;

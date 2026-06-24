@@ -25,6 +25,7 @@ let activeImageEditId = null;
 let activeWidthRatioItemId = null;
 let previewBaseImage = null;
 let lastHistoryTouchActionAt = 0;
+let lastWidthRatioTouchAt = 0;
 const historyState = {
   past: [],
   future: [],
@@ -178,6 +179,11 @@ function bindEvents() {
     });
   });
   els.kanbanBoard.addEventListener('click', onKanbanBoardClick);
+  els.kanbanBoard.addEventListener(
+    'pointerup',
+    onKanbanBoardPointerUp,
+    { passive: false }
+  );
   els.kanbanBoard.addEventListener('pointerdown', onKanbanPointerDown, { passive: true });
   document.addEventListener('keydown', onKanbanKeyDown);
   window.addEventListener('blur', cancelKanbanDrag);
@@ -742,7 +748,32 @@ function onKanbanBoardClick(e) {
   const editBtn = e.target.closest('.edit-btn');
   if (editBtn && els.kanbanBoard.contains(editBtn)) return openImageTextEditor(editBtn.dataset.id);
   const widthBtn = e.target.closest('.width-ratio-btn');
-  if (widthBtn && els.kanbanBoard.contains(widthBtn)) return openWidthRatioModal(widthBtn.dataset.id);
+  if (widthBtn && els.kanbanBoard.contains(widthBtn)) {
+    const isSyntheticTouchClick =
+      Date.now() - lastWidthRatioTouchAt < 800;
+
+    if (isSyntheticTouchClick) {
+      e.preventDefault();
+      return;
+    }
+
+    return openWidthRatioModal(widthBtn.dataset.id, false);
+  }
+}
+
+function onKanbanBoardPointerUp(event) {
+  if (event.pointerType !== 'touch') return;
+
+  const widthBtn = event.target.closest('.width-ratio-btn');
+
+  if (!widthBtn || !els.kanbanBoard.contains(widthBtn)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  lastWidthRatioTouchAt = Date.now();
+
+  openWidthRatioModal(widthBtn.dataset.id, true);
 }
 
 function clearDropIndicators() {
@@ -778,7 +809,7 @@ function findKanbanItemById(id) {
   return null;
 }
 
-function openWidthRatioModal(id) {
+function openWidthRatioModal(id, fromTouchGesture = false) {
   const item = findKanbanItemById(id);
   if (!item || !els.widthRatioModal || !els.widthRatioInput) return;
 
@@ -789,8 +820,10 @@ function openWidthRatioModal(id) {
   els.widthRatioInput.value = String(currentPercent);
   els.widthRatioModal.classList.remove('hidden');
   els.widthRatioModal.setAttribute('aria-hidden', 'false');
-  els.widthRatioInput.focus({ preventScroll: true });
-  els.widthRatioInput.select();
+  try {
+    els.widthRatioInput.focus();
+    els.widthRatioInput.select();
+  } catch {}
 }
 
 function closeWidthRatioModal() {
