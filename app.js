@@ -441,7 +441,7 @@ function renderKanban() {
     els.kanbanBoard.appendChild(wrap);
 
     const list = wrap.querySelector('.kanban-list');
-    col.items.forEach((item, itemIndex) => {
+    col.items.forEach(item => {
       const reg = imageRegistry[item.id];
       if (!reg) return;
       const card = document.createElement('div');
@@ -458,19 +458,15 @@ function renderKanban() {
             <button class="kanban-mini-icon kanban-drag-handle" type="button" title="拖曳排序">
               <i class="fa-solid fa-grip-lines"></i>
             </button>
-            <div class="kanban-order-pill">${itemIndex + 1}</div>
             <button class="kanban-mini-icon ${item.noGapBelow ? 'is-active' : ''} toggle-gap-btn" data-id="${item.id}" title="${item.noGapBelow ? '已貼齊' : '無縫貼齊'}">
               <i class="fa-solid fa-link"></i>
             </button>
             
-            <button class="kanban-mini-icon ${item.pinned ? 'is-active' : ''} pin-btn" data-id="${item.id}" title="${item.pinned ? '已固定欄位' : '固定欄位'}">
-              <i class="fa-solid fa-thumbtack"></i>
-            </button>
             <button class="kanban-mini-icon ${(item.widthRatio ?? 1.0) < 1.0 ? 'is-active' : ''} width-ratio-btn" data-id="${item.id}" title="佔寬比例">
-              <span style="font-size:0.7em;font-weight:600;letter-spacing:-0.02em">${(() => { const wr = item.widthRatio ?? 1.0; return Math.abs(wr - 1.0) < 0.01 ? '全' : Math.abs(wr - 0.75) < 0.01 ? '¾' : Math.abs(wr - 0.5) < 0.01 ? '½' : `${Math.round(wr * 100)}%`; })()}</span>
+              <span style="font-size:0.7em;font-weight:600;letter-spacing:-0.02em">${(() => { const wr = item.widthRatio ?? 1.0; return Math.abs(wr - 1.0) < 0.01 ? '100%' : Math.abs(wr - 0.75) < 0.01 ? '75%' : Math.abs(wr - 0.5) < 0.01 ? '50%' : `${Math.round(wr * 100)}%`; })()}</span>
             </button>
             <input class="width-percent-input" data-id="${item.id}" type="number" min="30" max="100" step="5" value="${Math.round((item.widthRatio ?? 1.0) * 100)}" title="圖片寬度百分比" style="width:3.4rem;height:1.75rem;font-size:0.72rem;text-align:center;padding:0 0.15rem;border:1px solid #d8e1ee;border-radius:0.45rem;background:#fff;color:#1f2937;">
-            ${reg.type === 'image' ? `<button class="kanban-mini-icon edit-btn" data-id="${item.id}" title="加字"><i class="fa-solid fa-pen-nib"></i></button>` : `<div class="kanban-mini-spacer"></div>`}
+            ${reg.type === 'image' ? `<button class="kanban-mini-icon edit-btn" data-id="${item.id}" title="加字"><i class="fa-solid fa-pen-nib"></i></button>` : ''}
             <button class="kanban-mini-icon is-danger delete-btn" data-id="${item.id}" title="刪除"><i class="fa-solid fa-trash"></i></button>
           </div>
         </div>
@@ -493,8 +489,6 @@ function onKanbanBoardClick(e) {
   if (deleteBtn && els.kanbanBoard.contains(deleteBtn)) return deleteItem(deleteBtn.dataset.id);
   const editBtn = e.target.closest('.edit-btn');
   if (editBtn && els.kanbanBoard.contains(editBtn)) return openImageTextEditor(editBtn.dataset.id);
-  const pinBtn = e.target.closest('.pin-btn');
-  if (pinBtn && els.kanbanBoard.contains(pinBtn)) return togglePinned(pinBtn.dataset.id);
   const widthBtn = e.target.closest('.width-ratio-btn');
   if (widthBtn && els.kanbanBoard.contains(widthBtn)) return toggleWidthRatio(widthBtn.dataset.id);
 }
@@ -524,18 +518,6 @@ function toggleNoGap(id) {
   for (const col of columnsState) {
     const item = col.items.find(x => x.id === id);
     if (item) { item.noGapBelow = !item.noGapBelow; break; }
-  }
-  renderKanban();
-  stateChanged();
-}
-
-function togglePinned(id) {
-  for (const col of columnsState) {
-    const item = col.items.find(x => x.id === id);
-    if (item) {
-      item.pinned = !item.pinned;
-      break;
-    }
   }
   renderKanban();
   stateChanged();
@@ -1389,22 +1371,12 @@ function rebalanceColumns(cols, baseColWidth, rowGap) {
   const colCount = cols.length;
   if (colCount < 2) return cols;
 
-  const originalColOf = {};
-  cols.forEach((col, ci) => col.items.forEach(item => { originalColOf[item.id] = ci; }));
-
   const allItems = [];
   cols.forEach(col => col.items.forEach(item => allItems.push(item)));
 
   const newCols = cols.map(col => ({ ...col, items: [] }));
 
   allItems.forEach(item => {
-    if (item.pinned) {
-      const orig = originalColOf[item.id];
-      if (orig != null && newCols[orig]) {
-        newCols[orig].items.push(item);
-        return;
-      }
-    }
     pickTargetColumn(newCols, baseColWidth, rowGap).items.push(item);
   });
 
