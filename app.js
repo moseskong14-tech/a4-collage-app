@@ -1,5 +1,5 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
-const APP_BUILD = 'v0.10.0 · 20260624-overlayfix2';
+const APP_BUILD = 'v0.10.1 · 20260624-iconfix1';
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';

@@ -47,6 +47,18 @@ http://localhost:8000
 
 如果你是新手，建議先不要改以上檔案；真的要改時，一次只改一小段，改完馬上測試。
 
+### 版本更新規則
+
+每一次任何使用者可見功能、Bug 修正、UI 修正或 icon 更新，必須：
+
+1. 遞增 `APP_BUILD`：`const APP_BUILD = 'vX.Y.Z · YYYYMMDD-簡短名稱';`
+2. 若 `app.js` 有改動，更新 `index.html` 的 `./app.js?v=YYYYMMDD-簡短名稱`。
+3. 若 `styles.css` 有改動，更新 `index.html` 的 `./styles.css?v=YYYYMMDD-簡短名稱`。
+4. 若 manifest 或 icon 有改動，更新 `manifest.webmanifest?v=YYYYMMDD-簡短名稱`、`apple-touch-icon.png?v=YYYYMMDD-簡短名稱`、`favicon-32.png?v=YYYYMMDD-簡短名稱`。
+5. `APP_BUILD` 的版本文字、JS cache query、CSS cache query、manifest/icon cache query 必須使用同一個 release label，例如 `v0.10.2 · 20260625-undo-ui`。
+6. 每次完成後，最終回覆第一行必須是：`版本：vX.Y.Z · YYYYMMDD-簡短名稱`。
+7. 不可只說「已完成」；必須說明修改了哪些檔案、哪些 cache query 已更新、是否需要刪除並重新加入 iPhone 主畫面捷徑。
+
 ### 如何確認沒有改壞
 
 每次修改後，可以照下面流程檢查：
