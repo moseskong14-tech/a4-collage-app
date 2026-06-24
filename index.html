@@ -166,10 +166,9 @@
               </section>
 
       <section id="boardSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-5 space-y-4 mobile-panel">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold">拖曳佈局看板</h2>
-          <div class="flex items-center gap-3">
-            <span class="text-xs text-slate-400">拖曳排序 / 跨欄移動 / 無縫貼齊</span>
+        <div class="board-header">
+          <div class="board-header-top">
+            <h2 class="text-lg font-semibold">拖曳佈局看板</h2>
             <div class="board-history-actions">
               <button
                 id="undoBtn"
@@ -196,6 +195,7 @@
               <button id="autoBalanceBtn" class="btn-secondary text-xs py-1 px-2"><i class="fa-solid fa-scale-balanced"></i> 自動平衡</button>
             </div>
           </div>
+          <span class="board-header-hint">拖曳排序 / 跨欄移動 / 無縫貼齊</span>
         </div>
         <div id="kanbanBoard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       </section>

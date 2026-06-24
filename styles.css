@@ -7,7 +7,31 @@ body{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 
 .btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
 .btn-secondary{background:#e2e8f0;color:#0f172a}.btn-secondary:hover{background:#cbd5e1}
 .icon-btn{background:#e2e8f0;color:#0f172a;padding:.65rem .85rem}.icon-btn:hover{background:#cbd5e1}
-.board-history-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.45rem}
+.board-header{
+  display:flex;
+  flex-direction:column;
+  gap:.35rem;
+  margin-bottom:.75rem;
+}
+.board-header-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.5rem;
+  min-width:0;
+}
+.board-history-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:.35rem;
+  flex:0 0 auto;
+  flex-wrap:nowrap;
+}
+.board-header-hint{
+  color:#94a3b8;
+  font-size:.72rem;
+}
 .history-action-btn{
   display:inline-flex;
   align-items:center;
@@ -68,8 +92,30 @@ body{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 
 
 @media (max-width: 640px){
   .btn-primary,.btn-warning,.btn-danger,.btn-secondary,.icon-btn{padding:.72rem .9rem;border-radius:.95rem}
-  .board-history-actions{justify-content:flex-start;gap:.35rem;width:100%}
-  .history-action-btn{min-height:2rem;padding:.42rem .52rem;font-size:.62rem}
+  .board-header-top h2{min-width:0;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .board-history-actions{justify-content:flex-end;gap:.35rem;flex-wrap:nowrap}
+  .history-action-btn{
+    width:1.85rem;
+    min-width:1.85rem;
+    height:1.85rem;
+    min-height:1.85rem;
+    padding:0;
+    border-radius:.55rem;
+  }
+  .history-action-btn span{display:none}
+  #autoBalanceBtn{
+    width:1.85rem;
+    min-width:1.85rem;
+    height:1.85rem;
+    min-height:1.85rem;
+    padding:0;
+    font-size:0;
+    border-radius:.55rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #autoBalanceBtn i{font-size:.72rem}
   .modal{padding:.5rem}
   .modal-panel{padding:1rem;border-radius:1rem}
   .width-ratio-modal-panel{width:calc(100% - 1.5rem);max-width:none}
@@ -120,9 +166,6 @@ html{scroll-behavior:smooth}
   .mobile-top-nav{padding:.42rem;gap:.4rem;margin-bottom:.7rem;border-radius:.9rem}
   .mobile-nav-btn{padding:.66rem .42rem;font-size:.76rem;border-radius:.78rem}
   #controlsSection,#boardSection,#previewSection{padding:.78rem !important;border-radius:1rem !important}
-  #boardSection .flex.items-center.justify-between.mb-3{margin-bottom:.6rem}
-  #boardSection h2{font-size:1rem;line-height:1.15}
-  #boardSection .text-xs{font-size:.64rem}
   .mobile-bottom-dock{left:.55rem;right:.55rem;gap:.5rem;padding:.52rem;border-radius:1rem}
   .mobile-dock-btn{min-height:3rem;padding:.45rem .35rem;font-size:.76rem}
   #previewSection .relative.rounded-2xl{padding:.5rem;min-height:unset}
@@ -139,9 +182,6 @@ html{scroll-behavior:smooth}
   .mobile-top-nav{padding:.32rem !important;gap:.32rem !important;margin-bottom:.5rem !important;border-radius:.78rem !important}
   .mobile-nav-btn{padding:.52rem .32rem !important;font-size:.68rem !important;border-radius:.66rem !important}
   #controlsSection,#boardSection,#previewSection{padding:.62rem !important;border-radius:.88rem !important}
-  #boardSection .flex.items-center.justify-between.mb-3{margin-bottom:.42rem !important}
-  #boardSection h2{font-size:.9rem !important;line-height:1.05 !important}
-  #boardSection .text-xs{font-size:.56rem !important}
   .mobile-bottom-dock{left:.4rem !important;right:.4rem !important;gap:.38rem !important;padding:.42rem !important;border-radius:.84rem !important}
   .mobile-dock-btn{min-height:2.65rem !important;padding:.35rem .24rem !important;font-size:.66rem !important;border-radius:.74rem !important}
   #collageCanvas{max-height:38vh !important;border-radius:.6rem !important}
@@ -319,34 +359,6 @@ input[type="range"]{accent-color:#2563eb}
 /* V16 square image surfaces and working frame motifs */
 #textCardPreview,#collageCanvas,#previewSection .preview-canvas{
   border-radius:0 !important;
-}
-
-
-@media (min-width:1024px){
-  #boardSection .flex.items-center.justify-between.mb-3{
-    align-items:flex-start;
-    gap:.75rem;
-  }
-  #boardSection .flex.items-center.gap-3{
-    flex-wrap:wrap;
-    justify-content:flex-end;
-    gap:.5rem;
-  }
-}
-
-
-@media (max-width:640px){
-  #boardSection .flex.items-center.justify-between.mb-3{
-    flex-direction:column;
-    align-items:stretch;
-  }
-  #boardSection .flex.items-center.gap-3{
-    justify-content:space-between;
-    flex-wrap:wrap;
-  }
-  #boardSection .text-xs{
-    font-size:.7rem !important;
-  }
 }
 
 

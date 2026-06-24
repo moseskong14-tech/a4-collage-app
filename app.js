@@ -789,11 +789,8 @@ function openWidthRatioModal(id) {
   els.widthRatioInput.value = String(currentPercent);
   els.widthRatioModal.classList.remove('hidden');
   els.widthRatioModal.setAttribute('aria-hidden', 'false');
-
-  requestAnimationFrame(() => {
-    els.widthRatioInput.focus();
-    els.widthRatioInput.select();
-  });
+  els.widthRatioInput.focus({ preventScroll: true });
+  els.widthRatioInput.select();
 }
 
 function closeWidthRatioModal() {
