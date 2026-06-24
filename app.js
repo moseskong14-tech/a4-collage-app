@@ -340,25 +340,41 @@ async function handleImageUpload(e) {
   const files = Array.from(e.target.files || []);
   if (!files.length) return;
   showLoading(true);
+  let successCount = 0;
+  const failedFiles = [];
   try {
     for (const file of files) {
-      const id = `img_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-      const originalData = await fileToDataURL(file);
-      const previewData = await createPreview(originalData, 520, 0.94);
-      const img = await loadImage(originalData);
-      imageRegistry[id] = { img, previewData, originalData, type: 'image' };
-      const colCount = Math.max(1, columnsState.length);
-      const safeW = A4_WIDTH - (computeSafeArea(els.frameStyle.value).x) * 2;
-      const baseColWidth = colCount > 1
-        ? (safeW - getEffectiveColumnGap(getColumnGapValue()) * (colCount - 1)) / colCount
-        : safeW;
-      const rowGap = getEffectiveRowGap(els.defaultGap.value);
-      const targetCol = pickTargetColumn(columnsState, baseColWidth, rowGap);
-      targetCol.items.push(normalizeItem({ id, noGapBelow: false }));
+      try {
+        const id = `img_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+        const originalData = await fileToDataURL(file);
+        const previewData = await createPreview(originalData, 520, 0.94);
+        const img = await loadImage(originalData);
+        imageRegistry[id] = { img, previewData, originalData, type: 'image' };
+        const colCount = Math.max(1, columnsState.length);
+        const safeW = A4_WIDTH - (computeSafeArea(els.frameStyle.value).x) * 2;
+        const baseColWidth = colCount > 1
+          ? (safeW - getEffectiveColumnGap(getColumnGapValue()) * (colCount - 1)) / colCount
+          : safeW;
+        const rowGap = getEffectiveRowGap(els.defaultGap.value);
+        const targetCol = pickTargetColumn(columnsState, baseColWidth, rowGap);
+        targetCol.items.push(normalizeItem({ id, noGapBelow: false }));
+        successCount++;
+      } catch (err) {
+        console.error('Image import failed:', file?.name, err);
+        failedFiles.push(file?.name || '未命名圖片');
+      }
     }
-    renderKanban();
-    stateChanged();
-    showStatus(`已加入 ${files.length} 張圖片`, 'success');
+    if (successCount > 0) {
+      renderKanban();
+      stateChanged();
+    }
+    if (successCount > 0 && failedFiles.length === 0) {
+      showStatus(`已加入 ${successCount} 張圖片`, 'success');
+    } else if (successCount > 0 && failedFiles.length > 0) {
+      showStatus(`已加入 ${successCount} 張圖片；${failedFiles.length} 張未能讀取`, 'error');
+    } else {
+      showStatus('未能讀取所選圖片。請改用 JPG、PNG 或 WebP 後再試。', 'error');
+    }
   } catch (err) {
     console.error(err);
     showStatus('圖片載入失敗，請換一張試試', 'error');
@@ -379,7 +395,12 @@ function fileToDataURL(file) {
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve(img);
+    img.onload = async () => {
+      if (img.decode) {
+        try { await img.decode(); } catch {}
+      }
+      resolve(img);
+    };
     img.onerror = reject;
     img.src = src;
   });
@@ -402,6 +423,7 @@ function renderKanban() {
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
   els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-0`;
   updateKanbanSpacingVars();
+  els.kanbanBoard.style.setProperty('--kanban-column-count', String(Math.max(1, columnsState.length)));
 
   columnsState.forEach((col, colIndex) => {
     const wrap = document.createElement('div');
