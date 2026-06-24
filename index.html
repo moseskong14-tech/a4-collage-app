@@ -170,7 +170,31 @@
           <h2 class="text-lg font-semibold">拖曳佈局看板</h2>
           <div class="flex items-center gap-3">
             <span class="text-xs text-slate-400">拖曳排序 / 跨欄移動 / 無縫貼齊</span>
-            <button id="autoBalanceBtn" class="btn-secondary text-xs py-1 px-2"><i class="fa-solid fa-scale-balanced"></i> 自動平衡</button>
+            <div class="board-history-actions">
+              <button
+                id="undoBtn"
+                type="button"
+                class="history-action-btn"
+                title="復原上一個操作"
+                aria-label="復原上一個操作"
+                disabled
+              >
+                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                <span>復原</span>
+              </button>
+              <button
+                id="redoBtn"
+                type="button"
+                class="history-action-btn"
+                title="重做下一個操作"
+                aria-label="重做下一個操作"
+                disabled
+              >
+                <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                <span>重做</span>
+              </button>
+              <button id="autoBalanceBtn" class="btn-secondary text-xs py-1 px-2"><i class="fa-solid fa-scale-balanced"></i> 自動平衡</button>
+            </div>
           </div>
         </div>
         <div id="kanbanBoard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>

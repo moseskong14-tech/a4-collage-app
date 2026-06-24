@@ -9,6 +9,7 @@ const DB_NAME = 'A4CollageDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'workspace';
 const WORKSPACE_KEY = 'workspace';
+const HISTORY_LIMIT = 20;
 
 let db = null;
 let imageRegistry = {};
@@ -22,6 +23,12 @@ let resetInProgress = false;
 let rafPending = false;
 let activeImageEditId = null;
 let previewBaseImage = null;
+const historyState = {
+  past: [],
+  future: [],
+  applying: false
+};
+let pendingControlHistorySnapshots = new WeakMap();
 
 const frameAssetCache = {};
 function createDefaultItemMeta() {
@@ -108,6 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   syncSpacingControls();
   await initDB();
   await loadWorkspace();
+  updateHistoryControls();
   renderKanban();
   throttledDrawCanvas();
 });
@@ -118,7 +126,7 @@ function cacheEls() {
     'kanbanBoard','saveDot','saveText','filenameInput','outputFormat','downloadBtn','loading','collageCanvas',
     'textCardModal','textCardPreview','textCardContent','textCardTextColor','textCardBgColor','textCardFontSize','textCardAlignH','textCardAlignV','addTextCardBtn',
     'imageTextModal','imageTextPreview','imageTextContent','imageTextColor','imageTextSize','imageTextAlign','applyImageTextBtn',
-    'imageInputMobileProxy','mobileTextCardBtn','mobileDownloadBtn','autoBalanceBtn','sampleColorBtn'
+    'imageInputMobileProxy','mobileTextCardBtn','mobileDownloadBtn','autoBalanceBtn','sampleColorBtn','undoBtn','redoBtn'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 
@@ -151,27 +159,58 @@ function setupMobileUI() {
 function bindEvents() {
   els.imageInput.addEventListener('change', handleImageUpload);
   if (els.imageInputMobileProxy) els.imageInputMobileProxy.addEventListener('change', handleImageUpload);
+  trackControlHistoryStart(els.layoutMode);
   els.layoutMode.addEventListener('change', () => {
+    pushPendingControlHistory(els.layoutMode);
     initColumnsForLayout(els.layoutMode.value, true);
     renderKanban();
     stateChanged();
   });
   [els.defaultGap, els.columnGap].forEach(input => {
+    trackControlHistoryStart(input);
     input.addEventListener('input', () => syncSpacingControls({ requestRender: true }));
-    input.addEventListener('change', () => syncSpacingControls({ requestRender: true, requestSave: true }));
+    input.addEventListener('change', () => {
+      pushPendingControlHistory(input);
+      syncSpacingControls({ requestRender: true, requestSave: true });
+    });
   });
   els.kanbanBoard.addEventListener('click', onKanbanBoardClick);
-  els.kanbanBoard.addEventListener('change', onKanbanBoardChange);
   els.kanbanBoard.addEventListener('pointerdown', onKanbanPointerDown, { passive: true });
   document.addEventListener('keydown', onKanbanKeyDown);
   window.addEventListener('blur', cancelKanbanDrag);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) cancelKanbanDrag();
   });
-  if (els.spacingMode) els.spacingMode.addEventListener('change', () => applySpacingMode(els.spacingMode.value, true));
-  if (els.authorName) els.authorName.addEventListener('input', triggerAutoSave);
-  ['frameStyle','patternColor'].forEach(id => els[id].addEventListener('input', stateChanged));
-  ['globalBgColor','innerBgColor'].forEach(id => els[id].addEventListener('input', () => { updateSwatchSelection(id, els[id].value); stateChanged(); }));
+  if (els.spacingMode) {
+    trackControlHistoryStart(els.spacingMode);
+    els.spacingMode.addEventListener('change', () => {
+      pushPendingControlHistory(els.spacingMode);
+      applySpacingMode(els.spacingMode.value, true);
+    });
+  }
+  if (els.authorName) {
+    trackControlHistoryStart(els.authorName);
+    els.authorName.addEventListener('input', triggerAutoSave);
+    els.authorName.addEventListener('change', () => pushPendingControlHistory(els.authorName));
+    els.authorName.addEventListener('blur', () => pushPendingControlHistory(els.authorName, false));
+  }
+  ['frameStyle','patternColor'].forEach(id => {
+    trackControlHistoryStart(els[id]);
+    els[id].addEventListener('input', stateChanged);
+    els[id].addEventListener('change', () => {
+      pushPendingControlHistory(els[id]);
+      stateChanged();
+    });
+  });
+  ['globalBgColor','innerBgColor'].forEach(id => {
+    trackControlHistoryStart(els[id]);
+    els[id].addEventListener('input', () => { updateSwatchSelection(id, els[id].value); stateChanged(); });
+    els[id].addEventListener('change', () => {
+      pushPendingControlHistory(els[id]);
+      updateSwatchSelection(id, els[id].value);
+      stateChanged();
+    });
+  });
   els.openTextCardBtn.addEventListener('click', () => openModal(els.textCardModal));
   if (els.mobileTextCardBtn) els.mobileTextCardBtn.addEventListener('click', () => openModal(els.textCardModal));
   document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => closeModal(document.getElementById(btn.dataset.close))));
@@ -179,12 +218,21 @@ function bindEvents() {
   els.addTextCardBtn.addEventListener('click', addTextCardToBoard);
   els.resetBtn.addEventListener('click', clearAll);
   if (els.autoBalanceBtn) els.autoBalanceBtn.addEventListener('click', handleAutoBalance);
+  if (els.undoBtn) els.undoBtn.addEventListener('click', undo);
+  if (els.redoBtn) els.redoBtn.addEventListener('click', redo);
   if (els.beautifyBtn) els.beautifyBtn.addEventListener('click', applyBeautifyPreset);
-  if (els.sampleColorBtn) els.sampleColorBtn.addEventListener('click', applyPatternColorFromPrimaryImage);
+  if (els.sampleColorBtn) els.sampleColorBtn.addEventListener('click', () => {
+    pushHistorySnapshot();
+    applyPatternColorFromPrimaryImage();
+  });
+  trackControlHistoryStart(els.filenameInput);
   els.filenameInput.addEventListener('input', () => { currentFilename = sanitizeFilename(els.filenameInput.value.trim()) || defaultFilename(); isCustomFilename = true; els.filenameInput.value = currentFilename; triggerAutoSave(); });
+  els.filenameInput.addEventListener('change', () => pushPendingControlHistory(els.filenameInput));
+  els.filenameInput.addEventListener('blur', () => pushPendingControlHistory(els.filenameInput, false));
   els.downloadBtn.addEventListener('click', downloadCanvas);
   if (els.mobileDownloadBtn) els.mobileDownloadBtn.addEventListener('click', downloadCanvas);
   document.querySelectorAll('.swatch').forEach(btn => btn.addEventListener('click', () => {
+    pushHistorySnapshot();
     const target = document.getElementById(btn.dataset.target);
     target.value = btn.dataset.color;
     updateSwatchSelection(btn.dataset.target, btn.dataset.color);
@@ -266,6 +314,126 @@ function stateChanged() {
   triggerAutoSave();
 }
 
+function captureHistorySnapshot() {
+  return {
+    columnsState: structuredClone(columnsState),
+    settings: {
+      layoutMode: els.layoutMode.value,
+      defaultGap: els.defaultGap.value,
+      columnGap: els.columnGap.value,
+      spacingMode: els.spacingMode?.value || '',
+      frameStyle: els.frameStyle.value,
+      globalBgColor: els.globalBgColor.value,
+      innerBgColor: els.innerBgColor.value,
+      patternColor: els.patternColor.value,
+      authorName: els.authorName?.value || '',
+      filename: currentFilename,
+      isCustomFilename
+    }
+  };
+}
+
+function historySnapshotKey(snapshot) {
+  return JSON.stringify(snapshot);
+}
+
+function pushHistorySnapshot(snapshot = captureHistorySnapshot()) {
+  if (historyState.applying) return;
+  const last = historyState.past[historyState.past.length - 1];
+  if (last && historySnapshotKey(last) === historySnapshotKey(snapshot)) return;
+  historyState.past.push(snapshot);
+  if (historyState.past.length > HISTORY_LIMIT) historyState.past.shift();
+  historyState.future = [];
+  updateHistoryControls();
+}
+
+function updateHistoryControls() {
+  if (els.undoBtn) {
+    els.undoBtn.disabled = historyState.past.length === 0;
+  }
+  if (els.redoBtn) {
+    els.redoBtn.disabled = historyState.future.length === 0;
+  }
+}
+
+function trackControlHistoryStart(input) {
+  if (!input) return;
+  const remember = () => {
+    if (historyState.applying || pendingControlHistorySnapshots.has(input)) return;
+    pendingControlHistorySnapshots.set(input, captureHistorySnapshot());
+  };
+  input.addEventListener('focus', remember);
+  input.addEventListener('pointerdown', remember);
+  input.addEventListener('keydown', remember);
+}
+
+function pushPendingControlHistory(input, fallback = true) {
+  const snapshot = pendingControlHistorySnapshots.get(input);
+  if (snapshot) {
+    pushHistorySnapshot(snapshot);
+    pendingControlHistorySnapshots.delete(input);
+  } else if (fallback) {
+    pushHistorySnapshot();
+  }
+}
+
+function applyHistorySnapshot(snapshot) {
+  historyState.applying = true;
+  try {
+    columnsState = structuredClone(snapshot.columnsState);
+    const settings = snapshot.settings || {};
+    els.layoutMode.value = settings.layoutMode || '3';
+    els.defaultGap.value = settings.defaultGap ?? DEFAULT_ROW_GAP_RAW;
+    els.columnGap.value = settings.columnGap ?? DEFAULT_COLUMN_GAP_RAW;
+    if (els.spacingMode) els.spacingMode.value = settings.spacingMode || '';
+    els.frameStyle.value = settings.frameStyle || DEFAULT_FRAME_STYLE;
+    els.globalBgColor.value = settings.globalBgColor || '#f8fafc';
+    els.innerBgColor.value = settings.innerBgColor || '#ffffff';
+    els.patternColor.value = settings.patternColor || '#c9a227';
+    if (els.authorName) els.authorName.value = settings.authorName || '';
+    currentFilename = settings.filename || defaultFilename();
+    isCustomFilename = Boolean(settings.isCustomFilename);
+    refreshFilename();
+    updateSwatchSelection('globalBgColor', els.globalBgColor.value);
+    updateSwatchSelection('innerBgColor', els.innerBgColor.value);
+    updateSwatchSelection('patternColor', els.patternColor.value);
+    syncSpacingControls({ requestRender: false, requestSave: false });
+    renderKanban();
+    throttledDrawCanvas();
+  } finally {
+    historyState.applying = false;
+  }
+  triggerAutoSave();
+  updateHistoryControls();
+}
+
+function undo() {
+  if (!historyState.past.length) return;
+  historyState.future.push(captureHistorySnapshot());
+  const snapshot = historyState.past.pop();
+  applyHistorySnapshot(snapshot);
+  updateHistoryControls();
+  showStatus('已復原上一個操作', 'info');
+}
+
+function redo() {
+  if (!historyState.future.length) return;
+  historyState.past.push(captureHistorySnapshot());
+  if (historyState.past.length > HISTORY_LIMIT) historyState.past.shift();
+  const snapshot = historyState.future.pop();
+  applyHistorySnapshot(snapshot);
+  updateHistoryControls();
+  showStatus('已重做操作', 'info');
+}
+
+function isEditableShortcutTarget(target) {
+  return !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
+}
+
+function hasOpenModal() {
+  return [els.textCardModal, els.imageTextModal].some(modal => modal && !modal.classList.contains('hidden'));
+}
+
 function updateKanbanSpacingVars() {
   const rowGap = getEffectiveRowGap(els.defaultGap.value);
   const colGap = getEffectiveColumnGap(els.columnGap.value);
@@ -299,6 +467,7 @@ function applySpacingMode(mode, notify=false) {
 }
 
 function applyBeautifyPreset() {
+  pushHistorySnapshot();
   const minGap = 16;
   els.defaultGap.value = Math.max(Number(els.defaultGap.value || 0), minGap);
   els.columnGap.value = Math.max(Number(els.columnGap.value || 0), minGap);
@@ -340,8 +509,17 @@ async function handleImageUpload(e) {
   const files = Array.from(e.target.files || []);
   if (!files.length) return;
   showLoading(true);
+  const total = files.length;
   let successCount = 0;
+  let processedCount = 0;
+  let historyPushed = false;
   const failedFiles = [];
+  showStatus(
+    total >= 20
+      ? `正在加入 ${total} 張圖片，建立預覽可能需要少許時間…`
+      : `正在準備加入 0 / ${total} 張圖片…`,
+    'info'
+  );
   try {
     for (const file of files) {
       try {
@@ -357,11 +535,21 @@ async function handleImageUpload(e) {
           : safeW;
         const rowGap = getEffectiveRowGap(els.defaultGap.value);
         const targetCol = pickTargetColumn(columnsState, baseColWidth, rowGap);
+        if (!historyPushed) {
+          pushHistorySnapshot();
+          historyPushed = true;
+        }
         targetCol.items.push(normalizeItem({ id, noGapBelow: false }));
         successCount++;
       } catch (err) {
         console.error('Image import failed:', file?.name, err);
         failedFiles.push(file?.name || '未命名圖片');
+      } finally {
+        processedCount++;
+        showStatus(`正在加入 ${processedCount} / ${total} 張圖片…`, 'info');
+        if (processedCount % 3 === 0 || processedCount === total) {
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
       }
     }
     if (successCount > 0) {
@@ -371,7 +559,7 @@ async function handleImageUpload(e) {
     if (successCount > 0 && failedFiles.length === 0) {
       showStatus(`已加入 ${successCount} 張圖片`, 'success');
     } else if (successCount > 0 && failedFiles.length > 0) {
-      showStatus(`已加入 ${successCount} 張圖片；${failedFiles.length} 張未能讀取`, 'error');
+      showStatus(`已加入 ${successCount} 張圖片；${failedFiles.length} 張未能讀取`, 'warning');
     } else {
       showStatus('未能讀取所選圖片。請改用 JPG、PNG 或 WebP 後再試。', 'error');
     }
@@ -465,7 +653,6 @@ function renderKanban() {
             <button class="kanban-mini-icon ${(item.widthRatio ?? 1.0) < 1.0 ? 'is-active' : ''} width-ratio-btn" data-id="${item.id}" title="佔寬比例">
               <span style="font-size:0.7em;font-weight:600;letter-spacing:-0.02em">${(() => { const wr = item.widthRatio ?? 1.0; return Math.abs(wr - 1.0) < 0.01 ? '100%' : Math.abs(wr - 0.75) < 0.01 ? '75%' : Math.abs(wr - 0.5) < 0.01 ? '50%' : `${Math.round(wr * 100)}%`; })()}</span>
             </button>
-            <input class="width-percent-input" data-id="${item.id}" type="number" min="30" max="100" step="5" value="${Math.round((item.widthRatio ?? 1.0) * 100)}" title="圖片寬度百分比" style="width:3.4rem;height:1.75rem;font-size:0.72rem;text-align:center;padding:0 0.15rem;border:1px solid #d8e1ee;border-radius:0.45rem;background:#fff;color:#1f2937;">
             ${reg.type === 'image' ? `<button class="kanban-mini-icon edit-btn" data-id="${item.id}" title="加字"><i class="fa-solid fa-pen-nib"></i></button>` : ''}
             <button class="kanban-mini-icon is-danger delete-btn" data-id="${item.id}" title="刪除"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -490,13 +677,7 @@ function onKanbanBoardClick(e) {
   const editBtn = e.target.closest('.edit-btn');
   if (editBtn && els.kanbanBoard.contains(editBtn)) return openImageTextEditor(editBtn.dataset.id);
   const widthBtn = e.target.closest('.width-ratio-btn');
-  if (widthBtn && els.kanbanBoard.contains(widthBtn)) return toggleWidthRatio(widthBtn.dataset.id);
-}
-
-function onKanbanBoardChange(e) {
-  const input = e.target.closest('.width-percent-input');
-  if (!input || !els.kanbanBoard.contains(input)) return;
-  setWidthRatioPercent(input.dataset.id, input.value);
+  if (widthBtn && els.kanbanBoard.contains(widthBtn)) return promptWidthRatio(widthBtn.dataset.id);
 }
 
 function clearDropIndicators() {
@@ -508,6 +689,7 @@ function clearDropIndicators() {
 
 function alignLabel(align) { return align === 'top' ? '靠上 ⬆️' : align === 'center' ? '置中 ↕️' : '靠下 ⬇️'; }
 function cycleAlign(colIndex) {
+  pushHistorySnapshot();
   const seq = ['top','center','bottom'];
   const current = columnsState[colIndex].align;
   columnsState[colIndex].align = seq[(seq.indexOf(current)+1) % seq.length];
@@ -517,46 +699,47 @@ function cycleAlign(colIndex) {
 function toggleNoGap(id) {
   for (const col of columnsState) {
     const item = col.items.find(x => x.id === id);
-    if (item) { item.noGapBelow = !item.noGapBelow; break; }
+    if (item) { pushHistorySnapshot(); item.noGapBelow = !item.noGapBelow; break; }
   }
   renderKanban();
   stateChanged();
 }
 
-function toggleWidthRatio(id) {
-  const steps = [1.0, 0.75, 0.5];
+function promptWidthRatio(id) {
   for (const col of columnsState) {
     const item = col.items.find(x => x.id === id);
     if (item) {
-      const cur = item.widthRatio ?? 1.0;
-      const idx = steps.findIndex(s => Math.abs(s - cur) < 0.01);
-      item.widthRatio = steps[(idx + 1) % steps.length];
-      break;
-    }
-  }
-  renderKanban();
-  stateChanged();
-}
+      const currentPercent = Math.round((item.widthRatio ?? 1) * 100);
+      const answer = window.prompt(
+        '輸入圖片寬度百分比（30–100）',
+        String(currentPercent)
+      );
 
-function setWidthRatioPercent(id, value) {
-  for (const col of columnsState) {
-    const item = col.items.find(x => x.id === id);
-    if (item) {
-      const currentPercent = Math.round((item.widthRatio ?? 1.0) * 100);
-      const parsed = Number(value);
-      const rawPercent = Number.isFinite(parsed) ? parsed : currentPercent;
-      const percent = Math.min(100, Math.max(30, Math.round(rawPercent)));
+      if (answer === null) return;
+
+      const trimmed = answer.trim();
+      const parsed = Number(trimmed);
+      if (trimmed === '' || !Number.isFinite(parsed)) {
+        showStatus('請輸入 30 至 100 的數字', 'warning');
+        return;
+      }
+
+      const percent = Math.min(100, Math.max(30, Math.round(parsed)));
+      if (percent === currentPercent) return;
+
+      pushHistorySnapshot();
       item.widthRatio = percent / 100;
+      renderKanban();
+      stateChanged();
+      showStatus(`已設定圖片寬度為 ${percent}%`, 'success');
       break;
     }
   }
-  renderKanban();
-  stateChanged();
 }
 
 function deleteItem(id) {
+  pushHistorySnapshot();
   for (const col of columnsState) col.items = col.items.filter(item => item.id !== id);
-  delete imageRegistry[id];
   renderKanban();
   stateChanged();
 }
@@ -1387,6 +1570,7 @@ function handleAutoBalance() {
 
   const ok = window.confirm('自動平衡會重新分配圖片到各欄，你現時手動安排的欄位分布可能被覆蓋。是否繼續？');
   if (!ok) return;
+  pushHistorySnapshot();
 
   const colCount = Math.max(1, columnsState.length);
   const safeW = A4_WIDTH - computeSafeArea(els.frameStyle.value).x * 2;
@@ -1708,6 +1892,7 @@ async function addTextCardToBoard() {
     : safeW;
   const rowGap = getEffectiveRowGap(els.defaultGap.value);
   const targetCol = pickTargetColumn(columnsState, baseColWidth, rowGap);
+  pushHistorySnapshot();
   targetCol.items.push(normalizeItem({ id, noGapBelow: false }));
   closeModal(els.textCardModal);
   renderKanban();
@@ -1855,6 +2040,7 @@ async function applyImageText() {
   closeModal(els.imageTextModal);
   renderKanban();
   stateChanged();
+  showStatus('已套用圖片文字；此圖片編輯暫不支援復原', 'info');
 }
 
 function showLoading(show) { els.loading.classList.toggle('hidden', !show); }
@@ -1959,7 +2145,7 @@ async function loadWorkspace() {
   showLoading(true);
   try {
     const workspace = await getWorkspace();
-    if (!workspace) { drawTextCardPreview(); updateSaveStatus('idle'); return; }
+    if (!workspace) { drawTextCardPreview(); updateSaveStatus('idle'); updateHistoryControls(); return; }
     els.layoutMode.value = workspace.settings?.layoutMode || '3';
     initColumnsForLayout(els.layoutMode.value);
     const rawDefaultGap = workspace.settings?.rawDefaultGap;
@@ -1987,6 +2173,7 @@ async function loadWorkspace() {
     enforcePaletteRows();
     drawTextCardPreview();
     updateSaveStatus('saved');
+    updateHistoryControls();
   } catch (err) {
     console.error(err);
     updateSaveStatus('error');
@@ -2000,6 +2187,10 @@ async function clearAll() {
   clearTimeout(autosaveTimer);
   pendingSaveRequested = false;
   try {
+    historyState.past = [];
+    historyState.future = [];
+    pendingControlHistorySnapshots = new WeakMap();
+    updateHistoryControls();
     imageRegistry = {};
     isCustomFilename = false;
     currentFilename = defaultFilename();
@@ -2037,7 +2228,7 @@ async function clearAll() {
 function downloadCanvas() {
   if (!els.collageCanvas) return;
 
-  const format = els.exportFormat?.value || 'jpeg';
+  const format = els.outputFormat?.value || 'jpeg';
   const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
   const ext = format === 'jpeg' ? 'jpg' : 'png';
 
@@ -2331,17 +2522,26 @@ function onKanbanPointerMove(e) {
 
 function finalizeDrag() {
   const { sourceId, sourceCol, sourceIndex, targetCol, targetIndex } = dragRuntime;
-  if (sourceId == null) return;
+  if (sourceId == null) return false;
 
   if (targetCol !== -1 && sourceCol !== -1 && targetIndex !== -1) {
+    let finalInsertIndex = targetIndex;
+    if (sourceCol === targetCol && sourceIndex < targetIndex) {
+      finalInsertIndex -= 1;
+    }
+
+    const isNoOp = sourceCol === targetCol && finalInsertIndex === sourceIndex;
+    if (isNoOp) return false;
+
+    pushHistorySnapshot();
     const [moved] = columnsState[sourceCol].items.splice(sourceIndex, 1);
     if (moved) {
-      let insertIndex = targetIndex;
-      if (sourceCol === targetCol && sourceIndex < targetIndex) insertIndex -= 1;
-      insertIndex = Math.max(0, Math.min(insertIndex, columnsState[targetCol].items.length));
+      const insertIndex = Math.max(0, Math.min(finalInsertIndex, columnsState[targetCol].items.length));
       columnsState[targetCol].items.splice(insertIndex, 0, moved);
+      return true;
     }
   }
+  return false;
 }
 
 function resetDragRuntime() {
@@ -2388,15 +2588,17 @@ function onKanbanPointerUp(e) {
       flushKanbanDragFrame();
     }
     const droppedId = dragRuntime.sourceId;
-    finalizeDrag();
+    const didChange = finalizeDrag();
     resetDragRuntime();
-    renderKanban();
-    if (droppedId) {
+    if (didChange) {
+      renderKanban();
+    }
+    if (didChange && droppedId) {
       const dropped = document.querySelector(`.kanban-item[data-id="${droppedId}"]`);
       dropped?.classList.add('kanban-just-dropped');
       window.setTimeout(() => dropped?.classList.remove('kanban-just-dropped'), 260);
     }
-    stateChanged();
+    if (didChange) stateChanged();
   } else {
     resetDragRuntime();
   }
@@ -2413,9 +2615,24 @@ function cancelKanbanDrag() {
 }
 
 function onKanbanKeyDown(e) {
-  if (e.key !== 'Escape') return;
-  if (dragRuntime.pointerId == null && !dragRuntime.active) return;
-  e.preventDefault();
-  resetDragRuntime();
+  if (e.key === 'Escape') {
+    if (dragRuntime.pointerId == null && !dragRuntime.active) return;
+    e.preventDefault();
+    resetDragRuntime();
+    return;
+  }
+
+  if (hasOpenModal() || isEditableShortcutTarget(e.target)) return;
+  const key = e.key.toLowerCase();
+  const mod = e.metaKey || e.ctrlKey;
+  const wantsUndo = mod && key === 'z' && !e.shiftKey;
+  const wantsRedo = (mod && key === 'z' && e.shiftKey) || (e.ctrlKey && key === 'y');
+  if (wantsUndo && historyState.past.length) {
+    e.preventDefault();
+    undo();
+  } else if (wantsRedo && historyState.future.length) {
+    e.preventDefault();
+    redo();
+  }
 }
 // ===== END CUSTOM DRAG ENGINE v1.2 =====
