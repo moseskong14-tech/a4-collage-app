@@ -1,4 +1,26 @@
 body{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.app-title-row{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:.5rem;
+}
+.app-version-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:1.35rem;
+  padding:.18rem .48rem;
+  border:1px solid #dbe4f0;
+  border-radius:999px;
+  background:#f8fafc;
+  color:#64748b;
+  font-size:.62rem;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.01em;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
 .btn-primary,.btn-warning,.btn-danger,.btn-secondary,.icon-btn{
   display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1rem;border-radius:1rem;font-weight:700;transition:.18s ease;
 }
@@ -520,6 +542,18 @@ body.kanban-actually-dragging .kanban-item:not(.is-drag-source):not(.kanban-plac
 
 @media (prefers-reduced-motion:reduce){
   .kanban-just-dropped,body.kanban-actually-dragging .kanban-item:not(.is-drag-source):not(.kanban-placeholder){animation:none !important;transition:none !important;}
+}
+
+@media(max-width:640px){
+  .app-title-row{
+    gap:.35rem;
+  }
+
+  .app-version-badge{
+    min-height:1.2rem;
+    padding:.15rem .4rem;
+    font-size:.52rem;
+  }
 }
 
 /* Isolated drag preview */

@@ -1,4 +1,5 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
+const APP_BUILD = 'v0.10.0 · 20260624-overlayfix2';
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
@@ -10,6 +11,8 @@ const DB_VERSION = 2;
 const STORE_NAME = 'workspace';
 const WORKSPACE_KEY = 'workspace';
 const HISTORY_LIMIT = 20;
+
+window.__A4_APP_BUILD__ = APP_BUILD;
 
 let db = null;
 let imageRegistry = {};
@@ -107,6 +110,11 @@ const els = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
   cacheEls();
+  if (els.appVersionBadge) {
+    els.appVersionBadge.textContent = APP_BUILD;
+    els.appVersionBadge.title = `目前載入版本：${APP_BUILD}`;
+  }
+  document.documentElement.dataset.a4Build = APP_BUILD;
   buildSharedBgPalettes();
   enforcePaletteRows();
   bindEvents();
@@ -125,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function cacheEls() {
   [
-    'imageInput','openTextCardBtn','resetBtn','layoutMode','spacingMode','defaultGap','gapValue','columnGap','columnGapValue','beautifyBtn','authorName','frameStyle','globalBgColor','innerBgColor','patternColor',
+    'appVersionBadge','imageInput','openTextCardBtn','resetBtn','layoutMode','spacingMode','defaultGap','gapValue','columnGap','columnGapValue','beautifyBtn','authorName','frameStyle','globalBgColor','innerBgColor','patternColor',
     'kanbanBoard','saveDot','saveText','filenameInput','outputFormat','downloadBtn','loading','collageCanvas',
     'textCardModal','textCardPreview','textCardContent','textCardTextColor','textCardBgColor','textCardFontSize','textCardAlignH','textCardAlignV','addTextCardBtn',
     'imageTextModal','imageTextPreview','imageTextContent','imageTextColor','imageTextSize','imageTextAlign','applyImageTextBtn',
@@ -2444,6 +2452,49 @@ function buildOverlay(card, rect) {
   return overlay;
 }
 
+function lockDragPreviewGeometry(overlay) {
+  if (!overlay) return;
+
+  const forced = [
+    ['position', 'fixed'],
+    ['display', 'block'],
+    ['width', '96px'],
+    ['min-width', '96px'],
+    ['max-width', '96px'],
+    ['height', '96px'],
+    ['min-height', '96px'],
+    ['max-height', '96px'],
+    ['margin', '0'],
+    ['padding', '0'],
+    ['overflow', 'hidden'],
+    ['box-sizing', 'border-box'],
+    ['pointer-events', 'none'],
+    ['z-index', '99999']
+  ];
+
+  forced.forEach(([property, value]) => {
+    overlay.style.setProperty(property, value, 'important');
+  });
+
+  const image = overlay.querySelector('.a4-drag-preview-image');
+
+  if (image) {
+    [
+      ['display', 'block'],
+      ['width', '96px'],
+      ['min-width', '96px'],
+      ['max-width', '96px'],
+      ['height', '96px'],
+      ['min-height', '96px'],
+      ['max-height', '96px'],
+      ['object-fit', 'contain'],
+      ['box-sizing', 'border-box']
+    ].forEach(([property, value]) => {
+      image.style.setProperty(property, value, 'important');
+    });
+  }
+}
+
 function updateOverlayPosition(clientX, clientY) {
   if (!dragRuntime.overlay) return;
   const x = clientX - dragRuntime.offsetX;
@@ -2575,6 +2626,26 @@ function beginDrag(card, clientX, clientY) {
   card.classList.add('is-drag-source');
   card.style.display = 'none';
   document.body.appendChild(dragRuntime.overlay);
+  lockDragPreviewGeometry(dragRuntime.overlay);
+  requestAnimationFrame(() => {
+    if (!dragRuntime.overlay) return;
+
+    lockDragPreviewGeometry(dragRuntime.overlay);
+
+    const rect = dragRuntime.overlay.getBoundingClientRect();
+
+    if (rect.width > 110 || rect.height > 110) {
+      console.warn(
+        '[A4 drag preview geometry mismatch]',
+        {
+          build: APP_BUILD,
+          width: rect.width,
+          height: rect.height,
+          className: dragRuntime.overlay.className
+        }
+      );
+    }
+  });
   card.parentElement?.insertBefore(dragRuntime.placeholder, card.nextSibling);
   document.body.classList.add('kanban-drag-active', 'kanban-sort-lock', 'kanban-actually-dragging');
   updateOverlayPosition(clientX, clientY);
