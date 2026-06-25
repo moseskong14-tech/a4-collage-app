@@ -55,7 +55,7 @@ http://localhost:8000
 2. 若 `app.js` 有改動，更新 `index.html` 的 `./app.js?v=YYYYMMDD-簡短名稱`。
 3. 若 `styles.css` 有改動，更新 `index.html` 的 `./styles.css?v=YYYYMMDD-簡短名稱`。
 4. 若 manifest 或 icon 有改動，更新 `manifest.webmanifest?v=YYYYMMDD-簡短名稱`、`apple-touch-icon.png?v=YYYYMMDD-簡短名稱`、`favicon-32.png?v=YYYYMMDD-簡短名稱`。
-5. `APP_BUILD` 的版本文字、JS cache query、CSS cache query、manifest/icon cache query 必須使用同一個 release label，例如 `v0.10.2 · 20260625-undo-ui`。
+5. `APP_BUILD` 的版本文字、JS cache query、CSS cache query 必須使用同一個 release label；manifest/icon cache query 只在 manifest 或 icon 有改動時同步更新，例如 `v0.10.2 · 20260625-undo-ui`。
 6. 每次完成後，最終回覆第一行必須是：`版本：vX.Y.Z · YYYYMMDD-簡短名稱`。
 7. 不可只說「已完成」；必須說明修改了哪些檔案、哪些 cache query 已更新、是否需要刪除並重新加入 iPhone 主畫面捷徑。
 

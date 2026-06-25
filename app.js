@@ -1,5 +1,5 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
-const APP_BUILD = 'v0.10.1 · 20260624-iconfix1';
+const APP_BUILD = 'v0.10.2 · 20260624-align-mobile';
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
@@ -701,7 +701,16 @@ function renderKanban() {
           <div class="kanban-col-title">${col.name}</div>
           <div class="kanban-col-count">${col.items.length}</div>
         </div>
-        <button class="kanban-align-pill align-btn" data-col="${colIndex}">${alignLabel(col.align)}</button>
+        <button
+          class="kanban-align-pill align-btn"
+          type="button"
+          data-col="${colIndex}"
+          title="${alignLabel(col.align)}"
+          aria-label="欄位對齊：${alignLabel(col.align)}；按一下切換"
+        >
+          <span class="kanban-align-text">${alignLabel(col.align)}</span>
+          <span class="kanban-align-symbol" aria-hidden="true">${alignSymbol(col.align)}</span>
+        </button>
       </div>
       <div class="kanban-list" data-col="${colIndex}"></div>
     `;
@@ -792,6 +801,11 @@ function clearDropIndicators() {
 
 
 function alignLabel(align) { return align === 'top' ? '靠上 ⬆️' : align === 'center' ? '置中 ↕️' : '靠下 ⬇️'; }
+function alignSymbol(align) {
+  if (align === 'top') return '↑';
+  if (align === 'center') return '↕';
+  return '↓';
+}
 function cycleAlign(colIndex) {
   pushHistorySnapshot();
   const seq = ['top','center','bottom'];
