@@ -1,5 +1,5 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
-const APP_BUILD = 'v0.10.2 · 20260624-align-mobile';
+const APP_BUILD = 'v0.10.4 · 20260802-special-upload-order';
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
@@ -577,8 +577,18 @@ function refreshFilename() {
 
 function initColumnsForLayout(layout, preserve=false) {
   const prevItems = preserve ? columnsState.flatMap(c => c.items) : [];
-  const count = layout === 'special_2_1' ? 3 : Number(layout);
-  const names = layout === 'special_2_1' ? ['左上方','右上方','下方置中'] : Array.from({length: count}, (_,i) => `第 ${i+1} 欄`);
+  const isSpecialThreeRegion =
+    layout === 'special_2_1' ||
+    layout === 'special_1_2';
+  const count = isSpecialThreeRegion ? 3 : Number(layout);
+  let names;
+  if (layout === 'special_2_1') {
+    names = ['左上方','右上方','下方置中'];
+  } else if (layout === 'special_1_2') {
+    names = ['上方置中','左下方','右下方'];
+  } else {
+    names = Array.from({length: count}, (_,i) => `第 ${i+1} 欄`);
+  }
   const newCols = names.map(name => ({ align: 'top', name, items: [] }));
   prevItems.forEach((item, idx) => newCols[idx % newCols.length].items.push(item));
   columnsState = newCols;
@@ -613,7 +623,12 @@ async function handleImageUpload(e) {
           ? (safeW - getEffectiveColumnGap(getColumnGapValue()) * (colCount - 1)) / colCount
           : safeW;
         const rowGap = getEffectiveRowGap(els.defaultGap.value);
-        const targetCol = pickTargetColumn(columnsState, baseColWidth, rowGap);
+        const targetCol = pickTargetColumnForLayout(
+          els.layoutMode.value,
+          columnsState,
+          baseColWidth,
+          rowGap
+        );
         if (!historyPushed) {
           pushHistorySnapshot();
           historyPushed = true;
@@ -949,6 +964,9 @@ function drawCanvas() {
 
   if (input.layoutMode === 'special_2_1') {
     const layoutResult = computeSpecialDraftLayout(input);
+    renderLayout(ctx, layoutResult, input);
+  } else if (input.layoutMode === 'special_1_2') {
+    const layoutResult = computeSpecialOneTopTwoBottomLayout(input);
     renderLayout(ctx, layoutResult, input);
   } else {
     const layoutResult = computeLayout(input);
@@ -1705,6 +1723,29 @@ function pickTargetColumn(cols, baseColWidth, rowGap) {
   });
 }
 
+function pickTargetColumnForLayout(
+  layoutMode,
+  cols,
+  baseColWidth,
+  rowGap
+) {
+  const isSpecialLayout =
+    layoutMode === 'special_2_1' ||
+    layoutMode === 'special_1_2';
+  if (isSpecialLayout) {
+    const firstEmptyColumn =
+      cols.find(col => col.items.length === 0);
+    if (firstEmptyColumn) {
+      return firstEmptyColumn;
+    }
+  }
+  return pickTargetColumn(
+    cols,
+    baseColWidth,
+    rowGap
+  );
+}
+
 function rebalanceColumns(cols, baseColWidth, rowGap) {
   const colCount = cols.length;
   if (colCount < 2) return cols;
@@ -1913,6 +1954,125 @@ function computeSpecialDraftLayout(input) {
   return { columns, scale: Math.min(topScale, bottomScale) };
 }
 
+function computeSpecialOneTopTwoBottomLayout(input) {
+  const { safeArea, columnsState: cols, defaultGap, columnGap, imageRegistry: reg } = input;
+  const safeX = safeArea.x, safeY = safeArea.y, safeW = safeArea.width, safeH = safeArea.height;
+
+  const topCol = cols[0] || { items: [], align: 'top' };
+  const bottomLeft = cols[1] || { items: [], align: 'top' };
+  const bottomRight = cols[2] || { items: [], align: 'top' };
+
+  const rowGapBase = Math.max(0, Number(defaultGap ?? 12));
+  const colGapBase = Math.max(0, Number(columnGap ?? 12));
+  const availableH = Math.max(1, safeH - rowGapBase);
+  const topZoneH = availableH / 2;
+  const bottomZoneH = availableH / 2;
+
+  const bottomGap = Math.min(colGapBase, safeW * 0.12);
+  const baseBottomW = (safeW - bottomGap) / 2;
+
+  const measureCol = (col, width) => {
+    const blocks = createBlocks(col.items).map(block => {
+      const measured = measureBlock(block, width, rowGapBase);
+      return { items: block, totalHeight: measured.totalHeight };
+    });
+    const totalHeight = blocks.reduce((sum, b, i) =>
+      sum + b.totalHeight + (i < blocks.length - 1 ? rowGapBase : 0), 0);
+    return { blocks, totalHeight };
+  };
+
+  const leftMeasure = measureCol(bottomLeft, baseBottomW);
+  const rightMeasure = measureCol(bottomRight, baseBottomW);
+  const bottomContentHBase = Math.max(
+    leftMeasure.totalHeight,
+    rightMeasure.totalHeight,
+    1
+  );
+  const bottomScale = Math.min(1, bottomZoneH / bottomContentHBase);
+  const bottomW = baseBottomW * bottomScale;
+  const scaledBottomGap = bottomGap * bottomScale;
+
+  const desiredTopW = Math.min(
+    safeW * 0.92,
+    bottomW * 2 + scaledBottomGap
+  );
+  const topMeasure = measureCol(topCol, desiredTopW);
+  const topScale = Math.min(
+    1,
+    topZoneH / Math.max(topMeasure.totalHeight, 1)
+  );
+  const topW = desiredTopW * topScale;
+
+  const topStartX = safeX + (safeW - topW) / 2;
+  const topStartY = safeY +
+    (topZoneH - topMeasure.totalHeight * topScale) / 2;
+
+  const hasBottomLeft = bottomLeft.items.length > 0;
+  const hasBottomRight = bottomRight.items.length > 0;
+  const bottomContentWidth = hasBottomLeft && hasBottomRight
+    ? bottomW * 2 + scaledBottomGap
+    : bottomW;
+  const bottomStartX = safeX + (safeW - bottomContentWidth) / 2;
+  const bottomStartY = safeY +
+    topZoneH +
+    rowGapBase +
+    (bottomZoneH - Math.max(
+      leftMeasure.totalHeight,
+      rightMeasure.totalHeight
+    ) * bottomScale) / 2;
+
+  const buildGroups = (colItems, startX, startY, colWidth, scale, measureData, columnIndex) => {
+    const groups = [];
+    let cursorY = startY;
+    measureData.blocks.forEach((blockData, blockIdx) => {
+      const groupY = cursorY;
+      const items = [];
+      let groupWidth = colWidth;
+
+      blockData.items.forEach(item => {
+        const data = getImageNaturalSize(item.id);
+        if (!data) return;
+        const drawW = colWidth * (item.widthRatio ?? 1.0);
+        const drawH = drawW * data.ratio;
+        groupWidth = drawW;
+        const itemX = startX + (colWidth - drawW) / 2;
+        items.push({ id: item.id, type: reg[item.id]?.type || 'image',
+          x: itemX, y: cursorY, width: drawW, height: drawH, sourceItem: item });
+        cursorY += drawH;
+      });
+
+      const actualBlockH = cursorY - groupY;
+      groups.push({
+        groupId: blockData.items[0]?.groupId || `__sp_1_2_${columnIndex}_${blockIdx}`,
+        groupBox: { x: startX, y: groupY, width: groupWidth, height: actualBlockH },
+        bgScale: 0,
+        items
+      });
+      if (blockIdx < measureData.blocks.length - 1) cursorY += rowGapBase * scale;
+    });
+    return groups;
+  };
+
+  const columns = [];
+  if (topCol.items.length) {
+    columns.push({ columnIndex: 0, x: topStartX, width: topW,
+      groups: buildGroups(topCol.items, topStartX, topStartY, topW, topScale, topMeasure, 0) });
+  }
+  if (hasBottomLeft) {
+    columns.push({ columnIndex: 1, x: bottomStartX, width: bottomW,
+      groups: buildGroups(bottomLeft.items, bottomStartX, bottomStartY, bottomW, bottomScale, leftMeasure, 1) });
+  }
+  if (hasBottomRight) {
+    const bottomRightX = hasBottomLeft
+      ? bottomStartX + bottomW + scaledBottomGap
+      : bottomStartX;
+    columns.push({ columnIndex: 2, x: bottomRightX, width: bottomW,
+      groups: buildGroups(bottomRight.items, bottomRightX, bottomStartY, bottomW, bottomScale, rightMeasure, 2) });
+  }
+
+  return { columns, scale: Math.min(topScale, bottomScale) };
+}
+
 function computeLayout(input) {
   return computeDraftLayout(input);
 }
@@ -2046,7 +2206,12 @@ async function addTextCardToBoard() {
     ? (safeW - getEffectiveColumnGap(getColumnGapValue()) * (colCount - 1)) / colCount
     : safeW;
   const rowGap = getEffectiveRowGap(els.defaultGap.value);
-  const targetCol = pickTargetColumn(columnsState, baseColWidth, rowGap);
+  const targetCol = pickTargetColumnForLayout(
+    els.layoutMode.value,
+    columnsState,
+    baseColWidth,
+    rowGap
+  );
   pushHistorySnapshot();
   targetCol.items.push(normalizeItem({ id, noGapBelow: false }));
   closeModal(els.textCardModal);
