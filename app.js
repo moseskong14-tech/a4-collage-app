@@ -1,5 +1,5 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
-const APP_BUILD = 'v0.10.4 · 20260802-special-upload-order';
+const APP_BUILD = 'v0.10.6 · 20260808-nogap-canonical-fix';
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
@@ -52,7 +52,10 @@ function createDefaultItemMeta() {
 }
 
 function normalizeItem(item) {
-  return { ...createDefaultItemMeta(), ...item };
+  const normalized = { ...createDefaultItemMeta(), ...item };
+  normalized.noGapBelow = item?.noGapBelow === true;
+  normalized.fixedGap = normalized.noGapBelow ? 0 : null;
+  return normalized;
 }
 
 function normalizeColumnsState(rawColumnsState) {
@@ -69,12 +72,12 @@ function normalizeColumnsState(rawColumnsState) {
         if (!currentGroupId) {
           currentGroupId = `__migrated_group_${colIndex}_${groupCounter++}`;
         }
-        const converted = {
+        const converted = normalizeItem({
           ...createDefaultItemMeta(),
           ...item,
           groupId: currentGroupId,
           fixedGap: item.noGapBelow ? 0 : null
-        };
+        });
         if (!item.noGapBelow) currentGroupId = null;
         return converted;
       }
@@ -517,7 +520,7 @@ function updateKanbanSpacingVars() {
   const rowGap = getEffectiveRowGap(els.defaultGap.value);
   const colGap = getEffectiveColumnGap(els.columnGap.value);
   if (els.kanbanBoard) {
-    els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(8, Math.round(rowGap * 0.5))}px`);
+    els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(0, Math.round(rowGap * 0.5))}px`);
     els.kanbanBoard.style.setProperty('--kanban-col-gap', `${colGap}px`);
   }
   return { rowGap, colGap };
@@ -732,11 +735,18 @@ function renderKanban() {
     els.kanbanBoard.appendChild(wrap);
 
     const list = wrap.querySelector('.kanban-list');
-    col.items.forEach(item => {
+    col.items.forEach((item, itemIndex) => {
       const reg = imageRegistry[item.id];
       if (!reg) return;
+      const noGapAbove = isNoGapAbove(colIndex, itemIndex);
+      const isFirstItem = itemIndex === 0;
+      const noGapTitle = isFirstItem
+        ? '第一張沒有上一張可貼齊'
+        : noGapAbove
+          ? '已與上一張貼齊；按一下取消'
+          : '與上一張貼齊';
       const card = document.createElement('div');
-      card.className = `kanban-item ${item.noGapBelow ? 'nogap' : ''}`;
+      card.className = `kanban-item ${item.noGapBelow ? 'nogap-below' : ''}`;
       card.dataset.id = item.id;
       card.innerHTML = `
         <div class="kanban-card-frame">
@@ -749,7 +759,7 @@ function renderKanban() {
             <button class="kanban-mini-icon kanban-drag-handle" type="button" title="拖曳排序">
               <i class="fa-solid fa-grip-lines"></i>
             </button>
-            <button class="kanban-mini-icon ${item.noGapBelow ? 'is-active' : ''} toggle-gap-btn" data-id="${item.id}" title="${item.noGapBelow ? '已貼齊' : '無縫貼齊'}">
+            <button class="kanban-mini-icon ${noGapAbove ? 'is-active' : ''} toggle-gap-btn" type="button" data-id="${item.id}" title="${noGapTitle}" aria-label="${noGapTitle}" ${isFirstItem ? 'disabled' : ''}>
               <i class="fa-solid fa-link"></i>
             </button>
             
@@ -774,7 +784,10 @@ function onKanbanBoardClick(e) {
   const alignBtn = e.target.closest('.align-btn');
   if (alignBtn && els.kanbanBoard.contains(alignBtn)) return cycleAlign(Number(alignBtn.dataset.col));
   const gapBtn = e.target.closest('.toggle-gap-btn');
-  if (gapBtn && els.kanbanBoard.contains(gapBtn)) return toggleNoGap(gapBtn.dataset.id);
+  if (gapBtn && els.kanbanBoard.contains(gapBtn)) {
+    if (gapBtn.disabled) return;
+    return toggleNoGapAbove(gapBtn.dataset.id);
+  }
   const deleteBtn = e.target.closest('.delete-btn');
   if (deleteBtn && els.kanbanBoard.contains(deleteBtn)) return deleteItem(deleteBtn.dataset.id);
   const editBtn = e.target.closest('.edit-btn');
@@ -829,13 +842,35 @@ function cycleAlign(colIndex) {
   renderKanban();
   stateChanged();
 }
-function toggleNoGap(id) {
-  for (const col of columnsState) {
-    const item = col.items.find(x => x.id === id);
-    if (item) { pushHistorySnapshot(); item.noGapBelow = !item.noGapBelow; break; }
+function findItemPositionById(id) {
+  for (let colIndex = 0; colIndex < columnsState.length; colIndex += 1) {
+    const itemIndex = columnsState[colIndex].items.findIndex(item => item.id === id);
+    if (itemIndex !== -1) return { colIndex, itemIndex, col: colIndex, index: itemIndex };
   }
+  return null;
+}
+
+function isNoGapAbove(colIndex, itemIndex) {
+  if (itemIndex <= 0) return false;
+  return columnsState[colIndex]?.items[itemIndex - 1]?.noGapBelow === true;
+}
+
+function setNoGapAfterItem(item, enabled) {
+  if (!item) return;
+  item.noGapBelow = enabled === true;
+  item.fixedGap = enabled ? 0 : null;
+}
+
+function toggleNoGapAbove(id) {
+  const position = findItemPositionById(id);
+  if (!position || position.itemIndex === 0) return;
+  const previousItem = columnsState[position.colIndex].items[position.itemIndex - 1];
+  const enabled = previousItem.noGapBelow !== true;
+  pushHistorySnapshot();
+  setNoGapAfterItem(previousItem, enabled);
   renderKanban();
   stateChanged();
+  showStatus(enabled ? '已與上一張貼齊' : '已取消與上一張貼齊', 'success');
 }
 
 function findKanbanItemById(id) {
@@ -908,8 +943,13 @@ function confirmWidthRatioModal() {
 }
 
 function deleteItem(id) {
+  const position = findItemPositionById(id);
+  if (!position) return;
   pushHistorySnapshot();
-  for (const col of columnsState) col.items = col.items.filter(item => item.id !== id);
+  const items = columnsState[position.colIndex].items;
+  setNoGapAfterItem(items[position.itemIndex - 1], false);
+  setNoGapAfterItem(items[position.itemIndex], false);
+  items.splice(position.itemIndex, 1);
   renderKanban();
   stateChanged();
 }
@@ -1672,6 +1712,10 @@ function createBlocks(items) {
   return blocks;
 }
 
+function getGapAfterItem(item, rowGap) {
+  return item?.noGapBelow === true ? 0 : rowGap;
+}
+
 function getImageNaturalSize(itemId) {
   const img = imageRegistry[itemId]?.img;
   if (!img) return null;
@@ -1709,8 +1753,7 @@ function estimateColumnHeight(col, baseColWidth, rowGap) {
   col.items.forEach((item, i) => {
     total += estimateItemHeight(item, baseColWidth);
     if (i < col.items.length - 1) {
-      const gap = (item.fixedGap != null) ? item.fixedGap : rowGap;
-      total += gap;
+      total += getGapAfterItem(item, rowGap);
     }
   });
   return total;
@@ -2696,14 +2739,6 @@ function clearCurrentDropTarget() {
   dragRuntime.lastDropAfter = null;
 }
 
-function findItemPositionById(id) {
-  for (let c = 0; c < columnsState.length; c++) {
-    const idx = columnsState[c].items.findIndex(item => item.id === id);
-    if (idx !== -1) return { col: c, index: idx };
-  }
-  return { col: -1, index: -1 };
-}
-
 function getDropPosition(clientX, clientY) {
   const prevDisplay = dragRuntime.overlay ? dragRuntime.overlay.style.display : '';
   if (dragRuntime.overlay) dragRuntime.overlay.style.display = 'none';
@@ -2774,7 +2809,7 @@ function onKanbanPointerDown(e) {
 
   const id = card.dataset.id;
   const pos = findItemPositionById(id);
-  if (pos.col === -1) return;
+  if (!pos) return;
 
   const rect = card.getBoundingClientRect();
   dragRuntime.pointerId = e.pointerId;
@@ -2919,10 +2954,15 @@ function finalizeDrag() {
     if (isNoOp) return false;
 
     pushHistorySnapshot();
-    const [moved] = columnsState[sourceCol].items.splice(sourceIndex, 1);
+    const sourceItems = columnsState[sourceCol].items;
+    setNoGapAfterItem(sourceItems[sourceIndex - 1], false);
+    setNoGapAfterItem(sourceItems[sourceIndex], false);
+    const [moved] = sourceItems.splice(sourceIndex, 1);
     if (moved) {
       const insertIndex = Math.max(0, Math.min(finalInsertIndex, columnsState[targetCol].items.length));
-      columnsState[targetCol].items.splice(insertIndex, 0, moved);
+      const targetItems = columnsState[targetCol].items;
+      setNoGapAfterItem(targetItems[insertIndex - 1], false);
+      targetItems.splice(insertIndex, 0, moved);
       return true;
     }
   }
