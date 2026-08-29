@@ -6,10 +6,10 @@
   <title>A4 專業排版工具</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <link rel="stylesheet" href="./styles.css?v=20260808-nogap-canonical-fix" />
+    <link rel="stylesheet" href="./styles.css?v=20260830-output-spacing-offline-v1" />
   <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png?v=20260624-iconfix1">
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png?v=20260624-iconfix1">
-  <link rel="manifest" href="./manifest.webmanifest?v=20260624-iconfix1">
+  <link rel="manifest" href="./manifest.webmanifest?v=20260830-offline-v1">
   <meta name="theme-color" content="#dfeaf2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -35,8 +35,12 @@
               >
                 載入中…
               </span>
+              <span id="offlineModeBadge" class="app-version-badge app-offline-badge" aria-live="polite">離線準備中</span>
+              <button id="updateAppBtn" class="app-update-btn" type="button" title="只在你按下時連線更新程式">
+                <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i><span>更新程式</span>
+              </button>
             </div>
-            <p class="text-sm text-slate-500 mt-1">依照你提供的規格製作成可直接開啟使用的網頁版。</p>
+            <p class="text-sm text-slate-500 mt-1">離線優先 A4 排版；排版設定只影響預覽與下載成品。</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <label class="btn-primary cursor-pointer">
@@ -70,15 +74,18 @@
                   <option value="tight">緊密</option>
                   <option value="normal" selected>標準</option>
                   <option value="airy">寬鬆</option>
+                  <option value="custom" disabled>自訂</option>
                 </select>
               </div>
               <div>
-                <label class="field-label">上下間距（同欄） <span id="gapValue" class="text-slate-400">20 px</span></label>
-                <input id="defaultGap" type="range" min="0" max="180" value="15" step="1" class="w-full" />
+                <label class="field-label">成品上下間距（同欄） <span id="gapValue" class="text-slate-400">20 px</span></label>
+                <input id="defaultGap" type="range" min="0" max="180" value="20" step="1" class="w-full" />
+                <p class="field-help">只影響 A4 預覽及下載，不會改變拖曳看板的操作間距。</p>
               </div>
               <div>
-                <label class="field-label">左右欄距（欄與欄之間） <span id="columnGapValue" class="text-slate-400">20 px</span></label>
-                <input id="columnGap" type="range" min="0" max="280" value="13" step="1" class="w-full" />
+                <label class="field-label">成品左右欄距（欄與欄之間） <span id="columnGapValue" class="text-slate-400">20 px</span></label>
+                <input id="columnGap" type="range" min="0" max="280" value="20" step="1" class="w-full" />
+                <p class="field-help">只影響 A4 預覽及下載，不會改變拖曳看板的欄距。</p>
               </div>
               <div class="sm:col-span-2">
                 <button id="beautifyBtn" class="btn-secondary w-full justify-center" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i><span>一鍵美化</span></button>
@@ -142,6 +149,14 @@
                   <option value="double">雙線邊框</option>
                   <option value="elegant">經典雅緻框</option>
 </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="field-label">圖片外框</label>
+                <select id="imageBorderStyle" class="field-input">
+                  <option value="none" selected>無（完全保留原圖）</option>
+                  <option value="soft-white">柔白相框（不裁圖）</option>
+                </select>
+                <p class="field-help">柔白相框只畫在圖片外圍，不裁剪、不拉伸、不改變原圖比例。</p>
               </div>
             </div>
           </details>
@@ -414,6 +429,6 @@
   </div>
 
   <script src="./assets/frame-assets.js"></script>
-  <script src="./app.js?v=20260808-nogap-canonical-fix"></script>
+  <script src="./app.js?v=20260830-output-spacing-offline-v1"></script>
 </body>
 </html>

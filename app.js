@@ -1,11 +1,12 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
-const APP_BUILD = 'v0.10.6 · 20260808-nogap-canonical-fix';
+const APP_BUILD = 'v0.11.0 · 20260830-output-spacing-offline';
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
-const DEFAULT_ROW_GAP_RAW = 15;
-const DEFAULT_COLUMN_GAP_RAW = 13;
+const DEFAULT_ROW_GAP_RAW = 20;
+const DEFAULT_COLUMN_GAP_RAW = 20;
 const DEFAULT_FRAME_STYLE = 'none';
+const DEFAULT_IMAGE_BORDER_STYLE = 'none';
 const DB_NAME = 'A4CollageDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'workspace';
@@ -15,6 +16,7 @@ const HISTORY_LIMIT = 20;
 window.__A4_APP_BUILD__ = APP_BUILD;
 
 let db = null;
+let persistenceAvailable = true;
 let imageRegistry = {};
 let columnsState = [];
 let currentFilename = '';
@@ -129,6 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   syncSpacingControls();
   await initDB();
   await loadWorkspace();
+  setupOfflineMode();
   updateHistoryControls();
   renderKanban();
   throttledDrawCanvas();
@@ -136,7 +139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function cacheEls() {
   [
-    'appVersionBadge','imageInput','openTextCardBtn','resetBtn','layoutMode','spacingMode','defaultGap','gapValue','columnGap','columnGapValue','beautifyBtn','authorName','frameStyle','globalBgColor','innerBgColor','patternColor',
+    'appVersionBadge','offlineModeBadge','updateAppBtn','imageInput','openTextCardBtn','resetBtn','layoutMode','spacingMode','defaultGap','gapValue','columnGap','columnGapValue','beautifyBtn','authorName','frameStyle','imageBorderStyle','globalBgColor','innerBgColor','patternColor',
     'kanbanBoard','saveDot','saveText','filenameInput','outputFormat','downloadBtn','loading','collageCanvas',
     'textCardModal','textCardPreview','textCardContent','textCardTextColor','textCardBgColor','textCardFontSize','textCardAlignH','textCardAlignV','addTextCardBtn',
     'imageTextModal','imageTextPreview','imageTextContent','imageTextColor','imageTextSize','imageTextAlign','applyImageTextBtn',
@@ -183,9 +186,13 @@ function bindEvents() {
   });
   [els.defaultGap, els.columnGap].forEach(input => {
     trackControlHistoryStart(input);
-    input.addEventListener('input', () => syncSpacingControls({ requestRender: true }));
+    input.addEventListener('input', () => {
+      if (els.spacingMode) els.spacingMode.value = 'custom';
+      syncSpacingControls({ requestRender: true });
+    });
     input.addEventListener('change', () => {
       pushPendingControlHistory(input);
+      if (els.spacingMode) els.spacingMode.value = 'custom';
       syncSpacingControls({ requestRender: true, requestSave: true });
     });
   });
@@ -214,7 +221,7 @@ function bindEvents() {
     els.authorName.addEventListener('change', () => pushPendingControlHistory(els.authorName));
     els.authorName.addEventListener('blur', () => pushPendingControlHistory(els.authorName, false));
   }
-  ['frameStyle','patternColor'].forEach(id => {
+  ['frameStyle','patternColor','imageBorderStyle'].forEach(id => {
     trackControlHistoryStart(els[id]);
     els[id].addEventListener('input', stateChanged);
     els[id].addEventListener('change', () => {
@@ -263,6 +270,7 @@ function bindEvents() {
     });
   }
   if (els.beautifyBtn) els.beautifyBtn.addEventListener('click', applyBeautifyPreset);
+  if (els.updateAppBtn) els.updateAppBtn.addEventListener('click', requestManualAppUpdate);
   if (els.sampleColorBtn) els.sampleColorBtn.addEventListener('click', () => {
     pushHistorySnapshot();
     applyPatternColorFromPrimaryImage();
@@ -342,11 +350,19 @@ function updateSwatchSelection(targetId, value) {
 }
 
 function getEffectiveRowGap(raw) {
+  return Math.max(0, Math.round(Number(raw || 0)));
+}
+
+function getEffectiveColumnGap(raw) {
+  return Math.max(0, Math.round(Number(raw || 0)));
+}
+
+function getLegacyEffectiveRowGap(raw) {
   const gap = Math.max(0, Number(raw || 0));
   return gap === 0 ? 0 : Math.round(gap * 1.18 + 2);
 }
 
-function getEffectiveColumnGap(raw) {
+function getLegacyEffectiveColumnGap(raw) {
   const gap = Math.max(0, Number(raw || 0));
   return gap === 0 ? 0 : Math.round(gap * 1.2 + 4);
 }
@@ -363,8 +379,9 @@ function captureHistorySnapshot() {
       layoutMode: els.layoutMode.value,
       defaultGap: els.defaultGap.value,
       columnGap: els.columnGap.value,
-      spacingMode: els.spacingMode?.value || '',
+      spacingMode: els.spacingMode?.value || 'custom',
       frameStyle: els.frameStyle.value,
+      imageBorderStyle: els.imageBorderStyle?.value || DEFAULT_IMAGE_BORDER_STYLE,
       globalBgColor: els.globalBgColor.value,
       innerBgColor: els.innerBgColor.value,
       patternColor: els.patternColor.value,
@@ -429,6 +446,7 @@ function applyHistorySnapshot(snapshot) {
     els.columnGap.value = settings.columnGap ?? DEFAULT_COLUMN_GAP_RAW;
     if (els.spacingMode) els.spacingMode.value = settings.spacingMode || '';
     els.frameStyle.value = settings.frameStyle || DEFAULT_FRAME_STYLE;
+    if (els.imageBorderStyle) els.imageBorderStyle.value = settings.imageBorderStyle || DEFAULT_IMAGE_BORDER_STYLE;
     els.globalBgColor.value = settings.globalBgColor || '#f8fafc';
     els.innerBgColor.value = settings.innerBgColor || '#ffffff';
     els.patternColor.value = settings.patternColor || '#c9a227';
@@ -517,13 +535,12 @@ function hasOpenModal() {
 }
 
 function updateKanbanSpacingVars() {
-  const rowGap = getEffectiveRowGap(els.defaultGap.value);
-  const colGap = getEffectiveColumnGap(els.columnGap.value);
-  if (els.kanbanBoard) {
-    els.kanbanBoard.style.setProperty('--kanban-row-gap', `${Math.max(0, Math.round(rowGap * 0.5))}px`);
-    els.kanbanBoard.style.setProperty('--kanban-col-gap', `${colGap}px`);
-  }
-  return { rowGap, colGap };
+  // Output spacing and drag-board spacing are intentionally independent.
+  // The Kanban board uses fixed CSS gaps for predictable dragging.
+  return {
+    rowGap: getEffectiveRowGap(els.defaultGap.value),
+    colGap: getEffectiveColumnGap(els.columnGap.value)
+  };
 }
 
 function syncSpacingControls(options = {}) {
@@ -537,9 +554,9 @@ function syncSpacingControls(options = {}) {
 
 function applySpacingMode(mode, notify=false) {
   const presets = {
-    tight: { row: 4, col: 4, label: '緊密' },
+    tight: { row: 8, col: 8, label: '緊密' },
     normal: { row: DEFAULT_ROW_GAP_RAW, col: DEFAULT_COLUMN_GAP_RAW, label: '標準' },
-    airy: { row: 28, col: 24, label: '寬鬆' }
+    airy: { row: 36, col: 32, label: '寬鬆' }
   };
   const preset = presets[mode] || presets.normal;
   els.defaultGap.value = preset.row;
@@ -550,18 +567,36 @@ function applySpacingMode(mode, notify=false) {
 
 function applyBeautifyPreset() {
   pushHistorySnapshot();
-  const minGap = 16;
-  els.defaultGap.value = Math.max(Number(els.defaultGap.value || 0), minGap);
-  els.columnGap.value = Math.max(Number(els.columnGap.value || 0), minGap);
-  els.globalBgColor.value = '#f8fafc';
-  els.innerBgColor.value = '#ffffff';
-  els.patternColor.value = '#c9a227';
+  const allItems = columnsState.flatMap(col => col.items);
+
+  els.defaultGap.value = 96;
+  els.columnGap.value = 36;
+  if (els.spacingMode) els.spacingMode.value = 'custom';
+  els.globalBgColor.value = '#eaf6fb';
+  els.innerBgColor.value = '#eaf6fb';
+  els.patternColor.value = '#9bbfcb';
+  if (els.imageBorderStyle) els.imageBorderStyle.value = 'soft-white';
+
+  if (allItems.length === 3) {
+    els.layoutMode.value = 'special_2_1';
+    initColumnsForLayout('special_2_1', true);
+    columnsState.forEach((col, index) => {
+      col.align = 'center';
+      col.items.forEach(item => { item.widthRatio = index === 2 ? 0.76 : 1.0; });
+    });
+    if (els.frameStyle.value === 'none') els.frameStyle.value = 'watercolor-floral';
+    renderKanban();
+    showStatus('已套用 3 圖海報美化：上二下一、淺藍底、水彩花框、柔白相框', 'success');
+  } else {
+    if (els.frameStyle.value === 'none') els.frameStyle.value = 'watercolor-floral';
+    showStatus('已套用柔和 A4 美化；圖片次序與比例保持不變', 'success');
+  }
+
   updateSwatchSelection('globalBgColor', els.globalBgColor.value);
   updateSwatchSelection('innerBgColor', els.innerBgColor.value);
   updateSwatchSelection('patternColor', els.patternColor.value);
-  syncSpacingControls();
+  syncSpacingControls({ requestRender: false, requestSave: false });
   stateChanged();
-  showStatus('已套用安全美化', 'success');
 }
 
 
@@ -579,7 +614,9 @@ function refreshFilename() {
 }
 
 function initColumnsForLayout(layout, preserve=false) {
-  const prevItems = preserve ? columnsState.flatMap(c => c.items) : [];
+  const prevBlocks = preserve
+    ? columnsState.flatMap(col => createBlocks(col.items))
+    : [];
   const isSpecialThreeRegion =
     layout === 'special_2_1' ||
     layout === 'special_1_2';
@@ -593,7 +630,7 @@ function initColumnsForLayout(layout, preserve=false) {
     names = Array.from({length: count}, (_,i) => `第 ${i+1} 欄`);
   }
   const newCols = names.map(name => ({ align: 'top', name, items: [] }));
-  prevItems.forEach((item, idx) => newCols[idx % newCols.length].items.push(item));
+  prevBlocks.forEach((block, idx) => newCols[idx % newCols.length].items.push(...block));
   columnsState = newCols;
 }
 
@@ -1017,9 +1054,11 @@ function drawCanvas() {
 function getSettings() {
   return {
     layoutMode: els.layoutMode.value,
+    spacingMode: els.spacingMode?.value || 'custom',
     defaultGap: getEffectiveRowGap(els.defaultGap.value),
     columnGap: getEffectiveColumnGap(getColumnGapValue()),
     frameStyle: els.frameStyle.value,
+    imageBorderStyle: els.imageBorderStyle?.value || DEFAULT_IMAGE_BORDER_STYLE,
     globalBgColor: els.globalBgColor.value,
     innerBgColor: els.innerBgColor.value,
     patternColor: els.patternColor.value,
@@ -1099,15 +1138,22 @@ function drawBackgroundAndFrame(ctx, s) {
     margin = drawImageFrameAsset(ctx, s.frameStyle);
   } else if (floral.includes(s.frameStyle)) {
     margin = ['editorial-luxe','artdeco-ornament'].includes(s.frameStyle) ? 190 : 176;
-    drawProceduralFrame(ctx, s.frameStyle, s.patternColor);
-    ctx.save();
-    ctx.shadowColor = 'rgba(15,23,42,0.12)';
-    ctx.shadowBlur = 22;
-    const inset = ['editorial-luxe','artdeco-ornament'].includes(s.frameStyle) ? 188 : 176;
-    roundRect(ctx, inset, inset, A4_WIDTH-inset*2, A4_HEIGHT-inset*2, 26);
-    ctx.fillStyle = s.innerBgColor;
-    ctx.fill();
-    ctx.restore();
+    if (s.frameStyle === 'watercolor-floral') {
+      // Flat paper field like a printed poster: no floating inner card or heavy shadow.
+      ctx.fillStyle = s.innerBgColor;
+      ctx.fillRect(82, 82, A4_WIDTH - 164, A4_HEIGHT - 164);
+      drawProceduralFrame(ctx, s.frameStyle, s.patternColor);
+    } else {
+      drawProceduralFrame(ctx, s.frameStyle, s.patternColor);
+      ctx.save();
+      ctx.shadowColor = 'rgba(15,23,42,0.12)';
+      ctx.shadowBlur = 22;
+      const inset = ['editorial-luxe','artdeco-ornament'].includes(s.frameStyle) ? 188 : 176;
+      roundRect(ctx, inset, inset, A4_WIDTH-inset*2, A4_HEIGHT-inset*2, 26);
+      ctx.fillStyle = s.innerBgColor;
+      ctx.fill();
+      ctx.restore();
+    }
   } else if (s.frameStyle === 'solid-white') {
     margin = 100;
     ctx.fillStyle = '#fff';
@@ -1149,6 +1195,8 @@ function drawProceduralFrame(ctx, style, color) {
     drawArtDecoOrnamentFrame(ctx, color);
   } else if (style === 'papercut-bloom') {
     drawPaperCutBloomFrame(ctx, color);
+  } else if (style === 'watercolor-floral') {
+    drawWatercolorFloralFrame(ctx, color);
   } else if (style === 'fresh-vine') {
     ctx.strokeStyle = color; ctx.lineWidth = 8;
     for (let i = 0; i < 6; i++) {
@@ -1209,6 +1257,56 @@ function drawProceduralFrame(ctx, style, color) {
       drawFlowerDot(ctx, A4_WIDTH-120 - (i%4)*40, 180 + i*245, 36, '#93c5fd', color);
     }
   }
+}
+
+function drawWatercolorFloralFrame(ctx, color) {
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = hexToRgba(color, .42);
+  roundRect(ctx, 74, 74, A4_WIDTH - 148, A4_HEIGHT - 148, 30);
+  ctx.stroke();
+
+  const corners = [
+    [104, 104, 1, 1],
+    [A4_WIDTH - 104, 104, -1, 1],
+    [104, A4_HEIGHT - 104, 1, -1],
+    [A4_WIDTH - 104, A4_HEIGHT - 104, -1, -1]
+  ];
+
+  corners.forEach(([x, y, sx, sy], cornerIndex) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sx, sy);
+    ctx.strokeStyle = hexToRgba(color, .55);
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(80, 20, 125, 72, 205, 126);
+    ctx.stroke();
+
+    const leaves = [
+      [46, 22, -.62, 32, 13], [82, 43, .42, 37, 15],
+      [120, 70, -.52, 34, 14], [158, 98, .44, 31, 13]
+    ];
+    leaves.forEach(([lx, ly, rot, rx, ry], i) => {
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(rot);
+      ctx.fillStyle = i % 2 ? 'rgba(166, 218, 206, .44)' : 'rgba(174, 216, 232, .44)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    const flowerPalette = cornerIndex % 2
+      ? ['rgba(201,225,250,.68)','rgba(244,249,255,.86)']
+      : ['rgba(239,247,252,.9)','rgba(188,218,243,.62)'];
+    drawFlowerDot(ctx, 24, 20, 42, flowerPalette[0], 'rgba(232,196,128,.72)');
+    drawFlowerDot(ctx, 186, 118, 31, flowerPalette[1], 'rgba(235,205,145,.70)');
+    ctx.restore();
+  });
+  ctx.restore();
 }
 
 function drawLeafVine(ctx, x, y, dx, dy, color) {
@@ -1761,7 +1859,8 @@ function estimateColumnHeight(col, baseColWidth, rowGap) {
 
 function pickTargetColumn(cols, baseColWidth, rowGap) {
   return cols.reduce((best, col) => {
-    return estimateColumnHeight(col, baseColWidth, rowGap) <=
+    // Keep the earlier column on ties so upload order stays intuitive.
+    return estimateColumnHeight(col, baseColWidth, rowGap) <
            estimateColumnHeight(best, baseColWidth, rowGap) ? col : best;
   });
 }
@@ -1793,13 +1892,12 @@ function rebalanceColumns(cols, baseColWidth, rowGap) {
   const colCount = cols.length;
   if (colCount < 2) return cols;
 
-  const allItems = [];
-  cols.forEach(col => col.items.forEach(item => allItems.push(item)));
-
+  const blocks = cols.flatMap(col => createBlocks(col.items));
   const newCols = cols.map(col => ({ ...col, items: [] }));
 
-  allItems.forEach(item => {
-    pickTargetColumn(newCols, baseColWidth, rowGap).items.push(item);
+  blocks.forEach(block => {
+    const target = pickTargetColumn(newCols, baseColWidth, rowGap);
+    target.items.push(...block);
   });
 
   return newCols;
@@ -1898,103 +1996,126 @@ function computeDraftLayout(input) {
   return result;
 }
 
+function measureSpecialColumn(col, width, rowGap) {
+  const blocks = createBlocks(col.items).map(block => {
+    const measured = measureBlock(block, width, rowGap);
+    return { items: block, totalHeight: measured.totalHeight };
+  });
+  const totalHeight = blocks.reduce((sum, blockData, index) =>
+    sum + blockData.totalHeight + (index < blocks.length - 1 ? rowGap : 0), 0);
+  return { blocks, totalHeight };
+}
+
+function specialAlignOffset(align, zoneHeight, contentHeight) {
+  if (align === 'bottom') return Math.max(0, zoneHeight - contentHeight);
+  if (align === 'center') return Math.max(0, (zoneHeight - contentHeight) / 2);
+  return 0;
+}
+
+function buildSpecialGroups(reg, measureData, startX, startY, baseWidth, scale, rowGap, prefix) {
+  const groups = [];
+  const colWidth = baseWidth * scale;
+  let cursorY = startY;
+
+  measureData.blocks.forEach((blockData, blockIndex) => {
+    const groupY = cursorY;
+    const items = [];
+    let groupWidth = colWidth;
+
+    blockData.items.forEach(item => {
+      const data = getImageNaturalSize(item.id);
+      if (!data) return;
+      const drawW = colWidth * (item.widthRatio ?? 1.0);
+      const drawH = drawW * data.ratio;
+      groupWidth = Math.max(groupWidth, drawW);
+      const itemX = startX + (colWidth - drawW) / 2;
+      items.push({
+        id: item.id,
+        type: reg[item.id]?.type || 'image',
+        x: itemX,
+        y: cursorY,
+        width: drawW,
+        height: drawH,
+        sourceItem: item
+      });
+      cursorY += drawH;
+    });
+
+    groups.push({
+      groupId: blockData.items[0]?.groupId || `${prefix}_${blockIndex}`,
+      groupBox: { x: startX, y: groupY, width: groupWidth, height: cursorY - groupY },
+      bgScale: 0,
+      items
+    });
+    if (blockIndex < measureData.blocks.length - 1) cursorY += rowGap * scale;
+  });
+  return groups;
+}
+
 function computeSpecialDraftLayout(input) {
   const { safeArea, columnsState: cols, defaultGap, columnGap, imageRegistry: reg } = input;
   const safeX = safeArea.x, safeY = safeArea.y, safeW = safeArea.width, safeH = safeArea.height;
 
-  const topLeft  = cols[0] || { items: [], align: 'top' };
+  const topLeft = cols[0] || { items: [], align: 'top' };
   const topRight = cols[1] || { items: [], align: 'top' };
   const bottomCol = cols[2] || { items: [], align: 'top' };
+  const rowGapBase = Math.max(0, Number(defaultGap ?? 20));
+  const topGapBase = Math.min(Math.max(0, Number(columnGap ?? 20)), safeW * 0.12);
+  const topBaseW = Math.max(1, (safeW - topGapBase) / 2);
+  const bottomBaseW = Math.min(safeW * 0.92, topBaseW * 2 + topGapBase);
 
-  const rowGapBase = Math.max(0, Number(defaultGap ?? 12));
-  const colGapBase = Math.max(0, Number(columnGap ?? 12));
-  const availableH = Math.max(1, safeH - rowGapBase);
-  const topZoneH = availableH / 2;
-  const bottomZoneH = availableH / 2;
-
-  const topGap = Math.min(colGapBase, safeW * 0.12);
-  const baseTopW = (safeW - topGap) / 2;
-
-  const measureCol = (col, width) => {
-    const blocks = createBlocks(col.items).map(block => {
-      const measured = measureBlock(block, width, rowGapBase);
-      return { items: block, totalHeight: measured.totalHeight };
-    });
-    const totalHeight = blocks.reduce((sum, b, i) =>
-      sum + b.totalHeight + (i < blocks.length - 1 ? rowGapBase : 0), 0);
-    return { blocks, totalHeight };
-  };
-
-  const leftMeasure   = measureCol(topLeft,  baseTopW);
-  const rightMeasure  = measureCol(topRight, baseTopW);
-  const topContentHBase = Math.max(leftMeasure.totalHeight, rightMeasure.totalHeight, 1);
-  const topScale = Math.min(1, topZoneH / topContentHBase);
-  const topW = baseTopW * topScale;
-  const scaledTopGap = topGap * topScale;
-
-  const desiredBottomW = Math.min(safeW * 0.92, topW * 2 + scaledTopGap);
-  const bottomMeasure  = measureCol(bottomCol, desiredBottomW);
-  const bottomScale = Math.min(1, bottomZoneH / Math.max(bottomMeasure.totalHeight, 1));
-  const bottomW = desiredBottomW * bottomScale;
-
-  const topContentWidth = topLeft.items.length && topRight.items.length
-    ? (topW * 2 + scaledTopGap) : topW;
-  const topStartX   = safeX + (safeW - topContentWidth) / 2;
-  const topStartY   = safeY + (topZoneH - Math.max(leftMeasure.totalHeight, rightMeasure.totalHeight) * topScale) / 2;
-  const bottomStartY = safeY + topZoneH + rowGapBase + (bottomZoneH - bottomMeasure.totalHeight * bottomScale) / 2;
-  const bottomStartX = safeX + (safeW - bottomW) / 2;
-
-  const buildGroups = (colItems, startX, startY, colWidth, scale, measureData) => {
-    const groups = [];
-    let cursorY = startY;
-    measureData.blocks.forEach((blockData, blockIdx) => {
-      const groupY = cursorY;
-      const items = [];
-      let groupWidth = colWidth;
-
-      blockData.items.forEach(item => {
-        const data = getImageNaturalSize(item.id);
-        if (!data) return;
-        const drawW = colWidth * (item.widthRatio ?? 1.0);
-        const drawH = drawW * data.ratio;
-        groupWidth = drawW;
-        const itemX = startX + (colWidth - drawW) / 2;
-        items.push({ id: item.id, type: reg[item.id]?.type || 'image',
-          x: itemX, y: cursorY, width: drawW, height: drawH, sourceItem: item });
-        cursorY += drawH;
-      });
-
-      const actualBlockH = cursorY - groupY;
-      groups.push({
-        groupId: blockData.items[0]?.groupId || `__sp_${blockIdx}`,
-        groupBox: { x: startX, y: groupY, width: groupWidth, height: actualBlockH },
-        bgScale: 0,
-        items
-      });
-      if (blockIdx < measureData.blocks.length - 1) cursorY += rowGapBase * scale;
-    });
-        return groups;
-  };
+  const leftMeasure = measureSpecialColumn(topLeft, topBaseW, rowGapBase);
+  const rightMeasure = measureSpecialColumn(topRight, topBaseW, rowGapBase);
+  const bottomMeasure = measureSpecialColumn(bottomCol, bottomBaseW, rowGapBase);
+  const hasTopLeft = topLeft.items.length > 0;
+  const hasTopRight = topRight.items.length > 0;
+  const hasTop = hasTopLeft || hasTopRight;
+  const hasBottom = bottomCol.items.length > 0;
+  const topHBase = Math.max(leftMeasure.totalHeight, rightMeasure.totalHeight, 0);
+  const tierGapBase = hasTop && hasBottom ? rowGapBase : 0;
+  const totalBaseH = Math.max(1, topHBase + tierGapBase + bottomMeasure.totalHeight);
+  const scale = Math.min(1, safeH / totalBaseH);
+  const totalH = totalBaseH * scale;
+  const startY = safeY + Math.max(0, (safeH - totalH) / 2);
 
   const columns = [];
-  if (topLeft.items.length && topRight.items.length) {
-    columns.push({ columnIndex: 0, x: topStartX, width: topW,
-      groups: buildGroups(topLeft.items, topStartX, topStartY, topW, topScale, leftMeasure) });
-    columns.push({ columnIndex: 1, x: topStartX + topW + scaledTopGap, width: topW,
-      groups: buildGroups(topRight.items, topStartX + topW + scaledTopGap, topStartY, topW, topScale, rightMeasure) });
-  } else if (topLeft.items.length) {
-    columns.push({ columnIndex: 0, x: topStartX, width: topW,
-      groups: buildGroups(topLeft.items, topStartX, topStartY, topW, topScale, leftMeasure) });
-  } else if (topRight.items.length) {
-    columns.push({ columnIndex: 1, x: topStartX, width: topW,
-      groups: buildGroups(topRight.items, topStartX, topStartY, topW, topScale, rightMeasure) });
+  const scaledTopW = topBaseW * scale;
+  const scaledTopGap = topGapBase * scale;
+  const topContentW = hasTopLeft && hasTopRight ? scaledTopW * 2 + scaledTopGap : scaledTopW;
+  const topStartX = safeX + (safeW - topContentW) / 2;
+
+  if (hasTopLeft) {
+    const y = startY + specialAlignOffset(topLeft.align, topHBase, leftMeasure.totalHeight) * scale;
+    columns.push({
+      columnIndex: 0,
+      x: topStartX,
+      width: scaledTopW,
+      groups: buildSpecialGroups(reg, leftMeasure, topStartX, y, topBaseW, scale, rowGapBase, '__sp21_l')
+    });
   }
-  if (bottomCol.items.length) {
-    columns.push({ columnIndex: 2, x: bottomStartX, width: bottomW,
-      groups: buildGroups(bottomCol.items, bottomStartX, bottomStartY, bottomW, bottomScale, bottomMeasure) });
+  if (hasTopRight) {
+    const x = hasTopLeft ? topStartX + scaledTopW + scaledTopGap : topStartX;
+    const y = startY + specialAlignOffset(topRight.align, topHBase, rightMeasure.totalHeight) * scale;
+    columns.push({
+      columnIndex: 1,
+      x,
+      width: scaledTopW,
+      groups: buildSpecialGroups(reg, rightMeasure, x, y, topBaseW, scale, rowGapBase, '__sp21_r')
+    });
+  }
+  if (hasBottom) {
+    const scaledBottomW = bottomBaseW * scale;
+    const x = safeX + (safeW - scaledBottomW) / 2;
+    const y = startY + (hasTop ? topHBase * scale + tierGapBase * scale : 0);
+    columns.push({
+      columnIndex: 2,
+      x,
+      width: scaledBottomW,
+      groups: buildSpecialGroups(reg, bottomMeasure, x, y, bottomBaseW, scale, rowGapBase, '__sp21_b')
+    });
   }
 
-  return { columns, scale: Math.min(topScale, bottomScale) };
+  return { columns, scale };
 }
 
 function computeSpecialOneTopTwoBottomLayout(input) {
@@ -2004,116 +2125,68 @@ function computeSpecialOneTopTwoBottomLayout(input) {
   const topCol = cols[0] || { items: [], align: 'top' };
   const bottomLeft = cols[1] || { items: [], align: 'top' };
   const bottomRight = cols[2] || { items: [], align: 'top' };
+  const rowGapBase = Math.max(0, Number(defaultGap ?? 20));
+  const bottomGapBase = Math.min(Math.max(0, Number(columnGap ?? 20)), safeW * 0.12);
+  const bottomBaseW = Math.max(1, (safeW - bottomGapBase) / 2);
+  const topBaseW = Math.min(safeW * 0.92, bottomBaseW * 2 + bottomGapBase);
 
-  const rowGapBase = Math.max(0, Number(defaultGap ?? 12));
-  const colGapBase = Math.max(0, Number(columnGap ?? 12));
-  const availableH = Math.max(1, safeH - rowGapBase);
-  const topZoneH = availableH / 2;
-  const bottomZoneH = availableH / 2;
-
-  const bottomGap = Math.min(colGapBase, safeW * 0.12);
-  const baseBottomW = (safeW - bottomGap) / 2;
-
-  const measureCol = (col, width) => {
-    const blocks = createBlocks(col.items).map(block => {
-      const measured = measureBlock(block, width, rowGapBase);
-      return { items: block, totalHeight: measured.totalHeight };
-    });
-    const totalHeight = blocks.reduce((sum, b, i) =>
-      sum + b.totalHeight + (i < blocks.length - 1 ? rowGapBase : 0), 0);
-    return { blocks, totalHeight };
-  };
-
-  const leftMeasure = measureCol(bottomLeft, baseBottomW);
-  const rightMeasure = measureCol(bottomRight, baseBottomW);
-  const bottomContentHBase = Math.max(
-    leftMeasure.totalHeight,
-    rightMeasure.totalHeight,
-    1
-  );
-  const bottomScale = Math.min(1, bottomZoneH / bottomContentHBase);
-  const bottomW = baseBottomW * bottomScale;
-  const scaledBottomGap = bottomGap * bottomScale;
-
-  const desiredTopW = Math.min(
-    safeW * 0.92,
-    bottomW * 2 + scaledBottomGap
-  );
-  const topMeasure = measureCol(topCol, desiredTopW);
-  const topScale = Math.min(
-    1,
-    topZoneH / Math.max(topMeasure.totalHeight, 1)
-  );
-  const topW = desiredTopW * topScale;
-
-  const topStartX = safeX + (safeW - topW) / 2;
-  const topStartY = safeY +
-    (topZoneH - topMeasure.totalHeight * topScale) / 2;
-
+  const topMeasure = measureSpecialColumn(topCol, topBaseW, rowGapBase);
+  const leftMeasure = measureSpecialColumn(bottomLeft, bottomBaseW, rowGapBase);
+  const rightMeasure = measureSpecialColumn(bottomRight, bottomBaseW, rowGapBase);
+  const hasTop = topCol.items.length > 0;
   const hasBottomLeft = bottomLeft.items.length > 0;
   const hasBottomRight = bottomRight.items.length > 0;
-  const bottomContentWidth = hasBottomLeft && hasBottomRight
-    ? bottomW * 2 + scaledBottomGap
-    : bottomW;
-  const bottomStartX = safeX + (safeW - bottomContentWidth) / 2;
-  const bottomStartY = safeY +
-    topZoneH +
-    rowGapBase +
-    (bottomZoneH - Math.max(
-      leftMeasure.totalHeight,
-      rightMeasure.totalHeight
-    ) * bottomScale) / 2;
-
-  const buildGroups = (colItems, startX, startY, colWidth, scale, measureData, columnIndex) => {
-    const groups = [];
-    let cursorY = startY;
-    measureData.blocks.forEach((blockData, blockIdx) => {
-      const groupY = cursorY;
-      const items = [];
-      let groupWidth = colWidth;
-
-      blockData.items.forEach(item => {
-        const data = getImageNaturalSize(item.id);
-        if (!data) return;
-        const drawW = colWidth * (item.widthRatio ?? 1.0);
-        const drawH = drawW * data.ratio;
-        groupWidth = drawW;
-        const itemX = startX + (colWidth - drawW) / 2;
-        items.push({ id: item.id, type: reg[item.id]?.type || 'image',
-          x: itemX, y: cursorY, width: drawW, height: drawH, sourceItem: item });
-        cursorY += drawH;
-      });
-
-      const actualBlockH = cursorY - groupY;
-      groups.push({
-        groupId: blockData.items[0]?.groupId || `__sp_1_2_${columnIndex}_${blockIdx}`,
-        groupBox: { x: startX, y: groupY, width: groupWidth, height: actualBlockH },
-        bgScale: 0,
-        items
-      });
-      if (blockIdx < measureData.blocks.length - 1) cursorY += rowGapBase * scale;
-    });
-    return groups;
-  };
-
+  const hasBottom = hasBottomLeft || hasBottomRight;
+  const bottomHBase = Math.max(leftMeasure.totalHeight, rightMeasure.totalHeight, 0);
+  const tierGapBase = hasTop && hasBottom ? rowGapBase : 0;
+  const totalBaseH = Math.max(1, topMeasure.totalHeight + tierGapBase + bottomHBase);
+  const scale = Math.min(1, safeH / totalBaseH);
+  const totalH = totalBaseH * scale;
+  const startY = safeY + Math.max(0, (safeH - totalH) / 2);
   const columns = [];
-  if (topCol.items.length) {
-    columns.push({ columnIndex: 0, x: topStartX, width: topW,
-      groups: buildGroups(topCol.items, topStartX, topStartY, topW, topScale, topMeasure, 0) });
-  }
-  if (hasBottomLeft) {
-    columns.push({ columnIndex: 1, x: bottomStartX, width: bottomW,
-      groups: buildGroups(bottomLeft.items, bottomStartX, bottomStartY, bottomW, bottomScale, leftMeasure, 1) });
-  }
-  if (hasBottomRight) {
-    const bottomRightX = hasBottomLeft
-      ? bottomStartX + bottomW + scaledBottomGap
-      : bottomStartX;
-    columns.push({ columnIndex: 2, x: bottomRightX, width: bottomW,
-      groups: buildGroups(bottomRight.items, bottomRightX, bottomStartY, bottomW, bottomScale, rightMeasure, 2) });
+
+  if (hasTop) {
+    const scaledTopW = topBaseW * scale;
+    const x = safeX + (safeW - scaledTopW) / 2;
+    columns.push({
+      columnIndex: 0,
+      x,
+      width: scaledTopW,
+      groups: buildSpecialGroups(reg, topMeasure, x, startY, topBaseW, scale, rowGapBase, '__sp12_t')
+    });
   }
 
-  return { columns, scale: Math.min(topScale, bottomScale) };
+  if (hasBottom) {
+    const scaledBottomW = bottomBaseW * scale;
+    const scaledBottomGap = bottomGapBase * scale;
+    const bottomContentW = hasBottomLeft && hasBottomRight
+      ? scaledBottomW * 2 + scaledBottomGap
+      : scaledBottomW;
+    const bottomStartX = safeX + (safeW - bottomContentW) / 2;
+    const bottomStartY = startY + (hasTop ? topMeasure.totalHeight * scale + tierGapBase * scale : 0);
+
+    if (hasBottomLeft) {
+      const y = bottomStartY + specialAlignOffset(bottomLeft.align, bottomHBase, leftMeasure.totalHeight) * scale;
+      columns.push({
+        columnIndex: 1,
+        x: bottomStartX,
+        width: scaledBottomW,
+        groups: buildSpecialGroups(reg, leftMeasure, bottomStartX, y, bottomBaseW, scale, rowGapBase, '__sp12_l')
+      });
+    }
+    if (hasBottomRight) {
+      const x = hasBottomLeft ? bottomStartX + scaledBottomW + scaledBottomGap : bottomStartX;
+      const y = bottomStartY + specialAlignOffset(bottomRight.align, bottomHBase, rightMeasure.totalHeight) * scale;
+      columns.push({
+        columnIndex: 2,
+        x,
+        width: scaledBottomW,
+        groups: buildSpecialGroups(reg, rightMeasure, x, y, bottomBaseW, scale, rowGapBase, '__sp12_r')
+      });
+    }
+  }
+
+  return { columns, scale };
 }
 
 function computeLayout(input) {
@@ -2154,14 +2227,25 @@ function renderLayout(ctx, layoutResult, input) {
       group.items.forEach(item => {
         const data = getImageNaturalSize(item.id);
         if (!data) return;
-        drawImagePlain(ctx, data.img, item.x, item.y, item.width, item.height);
+        drawImagePlain(ctx, data.img, item.x, item.y, item.width, item.height, input.imageBorderStyle);
       });
     });
   });
 }
 
 
-function drawImagePlain(ctx, img, x, y, w, h) {
+function drawImagePlain(ctx, img, x, y, w, h, borderStyle='none') {
+  if (borderStyle === 'soft-white') {
+    const mat = Math.max(5, Math.min(9, Math.round(Math.min(w, h) * 0.012)));
+    ctx.save();
+    ctx.shadowColor = 'rgba(71, 85, 105, .14)';
+    ctx.shadowBlur = Math.max(10, mat * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.98)';
+    roundRect(ctx, x - mat, y - mat, w + mat * 2, h + mat * 2, Math.max(8, mat * 1.6));
+    ctx.fill();
+    ctx.restore();
+  }
+  // Never crop or stretch: layout width/height are always derived from the source aspect ratio.
   ctx.drawImage(img, x, y, w, h);
 }
 function roundRect(ctx, x, y, w, h, r) {
@@ -2426,17 +2510,30 @@ function updateSaveStatus(state) {
 }
 
 async function initDB() {
-  db = await new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      const d = req.result;
-      if (!d.objectStoreNames.contains(STORE_NAME)) d.createObjectStore(STORE_NAME);
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  if (!('indexedDB' in window)) {
+    persistenceAvailable = false;
+    db = null;
+    return;
+  }
+  try {
+    db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains(STORE_NAME)) d.createObjectStore(STORE_NAME);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    persistenceAvailable = true;
+  } catch (err) {
+    console.warn('IndexedDB unavailable; continuing without persistence.', err);
+    db = null;
+    persistenceAvailable = false;
+  }
 }
 function putWorkspace(data) {
+  if (!db) return Promise.resolve();
   return new Promise((resolve,reject) => {
     const tx = db.transaction(STORE_NAME,'readwrite');
     const store = tx.objectStore(STORE_NAME);
@@ -2445,6 +2542,7 @@ function putWorkspace(data) {
   });
 }
 function getWorkspace() {
+  if (!db) return Promise.resolve(null);
   return new Promise((resolve,reject) => {
     const tx = db.transaction(STORE_NAME,'readonly');
     const req = tx.objectStore(STORE_NAME).get(WORKSPACE_KEY);
@@ -2452,6 +2550,7 @@ function getWorkspace() {
   });
 }
 function deleteWorkspace() {
+  if (!db) return Promise.resolve();
   return new Promise((resolve,reject) => {
     const tx = db.transaction(STORE_NAME,'readwrite');
     const req = tx.objectStore(STORE_NAME).delete(WORKSPACE_KEY);
@@ -2470,11 +2569,18 @@ function triggerAutoSave() {
 
 function buildWorkspacePayload() {
   const images = {};
-  Object.entries(imageRegistry).forEach(([id, item]) => {
-    images[id] = { previewData: item.previewData || item.thumb || item.originalData, originalData: item.originalData, type: item.type };
+  const referencedIds = new Set(columnsState.flatMap(col => col.items.map(item => item.id)));
+  referencedIds.forEach(id => {
+    const item = imageRegistry[id];
+    if (!item) return;
+    images[id] = {
+      previewData: item.previewData || item.thumb || item.originalData,
+      originalData: item.originalData,
+      type: item.type
+    };
   });
   return {
-    version: 3,
+    version: 4,
     savedAt: Date.now(),
     settings: {
       ...getSettings(),
@@ -2490,6 +2596,10 @@ function buildWorkspacePayload() {
 
 async function saveWorkspace() {
   if (resetInProgress) return;
+  if (!persistenceAvailable || !db) {
+    showStatus('本機儲存不可用；目前內容只保留在這個頁面', 'warning');
+    return;
+  }
   isSaving = true;
   updateSaveStatus('saving');
   try {
@@ -2507,22 +2617,44 @@ async function saveWorkspace() {
 async function loadWorkspace() {
   showLoading(true);
   try {
+    if (!persistenceAvailable || !db) {
+      drawTextCardPreview();
+      showStatus('本機儲存不可用；仍可排版及下載', 'warning');
+      updateHistoryControls();
+      return;
+    }
+
     const workspace = await getWorkspace();
     if (!workspace) { drawTextCardPreview(); updateSaveStatus('idle'); updateHistoryControls(); return; }
     els.layoutMode.value = workspace.settings?.layoutMode || '3';
     initColumnsForLayout(els.layoutMode.value);
+
     const rawDefaultGap = workspace.settings?.rawDefaultGap;
     const rawColumnGap = workspace.settings?.rawColumnGap;
-    els.defaultGap.value = rawDefaultGap != null ? rawDefaultGap : DEFAULT_ROW_GAP_RAW;
-    els.columnGap.value = rawColumnGap != null ? rawColumnGap : DEFAULT_COLUMN_GAP_RAW;
+    const legacy = Number(workspace.version || 0) < 4;
+    els.defaultGap.value = legacy
+      ? getLegacyEffectiveRowGap(rawDefaultGap != null ? rawDefaultGap : 15)
+      : (rawDefaultGap != null ? rawDefaultGap : DEFAULT_ROW_GAP_RAW);
+    els.columnGap.value = legacy
+      ? getLegacyEffectiveColumnGap(rawColumnGap != null ? rawColumnGap : 13)
+      : (rawColumnGap != null ? rawColumnGap : DEFAULT_COLUMN_GAP_RAW);
+    if (els.spacingMode) {
+      const savedMode = workspace.settings?.spacingMode;
+      els.spacingMode.value = (!legacy && savedMode && ['tight','normal','airy','custom'].includes(savedMode))
+        ? savedMode
+        : 'custom';
+    }
     syncSpacingControls();
+
     els.frameStyle.value = workspace.settings?.frameStyle || DEFAULT_FRAME_STYLE;
+    if (els.imageBorderStyle) els.imageBorderStyle.value = workspace.settings?.imageBorderStyle || DEFAULT_IMAGE_BORDER_STYLE;
     els.globalBgColor.value = workspace.settings?.globalBgColor || '#f8fafc';
     els.innerBgColor.value = workspace.settings?.innerBgColor || '#ffffff';
     els.patternColor.value = workspace.settings?.patternColor || '#c9a227';
     if (els.authorName) els.authorName.value = workspace.settings?.authorName || DEFAULT_AUTHOR_NAME;
     updateSwatchSelection('globalBgColor', els.globalBgColor.value);
     updateSwatchSelection('innerBgColor', els.innerBgColor.value);
+    updateSwatchSelection('patternColor', els.patternColor.value);
     currentFilename = workspace.settings?.filename || defaultFilename();
     isCustomFilename = Boolean(workspace.settings?.isCustomFilename);
     refreshFilename();
@@ -2530,16 +2662,32 @@ async function loadWorkspace() {
     columnsState = normalizeColumnsState(workspace.columnsState || columnsState);
     imageRegistry = {};
     const entries = Object.entries(workspace.images || {});
-    await Promise.all(entries.map(async ([id, item]) => {
-      imageRegistry[id] = { ...item, previewData: item.previewData || item.thumb || item.originalData, img: await loadImage(item.originalData) };
-    }));
+    const failedIds = [];
+    for (const [id, item] of entries) {
+      try {
+        imageRegistry[id] = {
+          ...item,
+          previewData: item.previewData || item.thumb || item.originalData,
+          img: await loadImage(item.originalData)
+        };
+      } catch (err) {
+        console.warn('Skipping unreadable saved image:', id, err);
+        failedIds.push(id);
+      }
+    }
+    if (failedIds.length) {
+      const bad = new Set(failedIds);
+      columnsState.forEach(col => { col.items = col.items.filter(item => !bad.has(item.id)); });
+      showStatus(`已略過 ${failedIds.length} 張損壞的舊圖片，其餘排版已復原`, 'warning');
+    } else {
+      updateSaveStatus('saved');
+    }
     enforcePaletteRows();
     drawTextCardPreview();
-    updateSaveStatus('saved');
     updateHistoryControls();
   } catch (err) {
     console.error(err);
-    updateSaveStatus('error');
+    showStatus('載入本機工作區失敗；可繼續建立新排版', 'error');
   } finally { showLoading(false); }
 }
 
@@ -2559,8 +2707,9 @@ async function clearAll() {
     currentFilename = defaultFilename();
     els.layoutMode.value = '3';
     initColumnsForLayout('3');
-    els.defaultGap.value = DEFAULT_ROW_GAP_RAW; els.columnGap.value = DEFAULT_COLUMN_GAP_RAW; syncSpacingControls();
+    els.defaultGap.value = DEFAULT_ROW_GAP_RAW; els.columnGap.value = DEFAULT_COLUMN_GAP_RAW; if (els.spacingMode) els.spacingMode.value = 'normal'; syncSpacingControls();
     els.frameStyle.value = DEFAULT_FRAME_STYLE;
+    if (els.imageBorderStyle) els.imageBorderStyle.value = DEFAULT_IMAGE_BORDER_STYLE;
     els.globalBgColor.value = '#f8fafc';
     els.innerBgColor.value = '#ffffff';
     els.patternColor.value = '#c9a227';
@@ -2588,25 +2737,200 @@ async function clearAll() {
   }
 }
 
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i];
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function withPngDpi(blob, dpi=300) {
+  return blob.arrayBuffer().then(buffer => {
+    const src = new Uint8Array(buffer);
+    const signature = [137,80,78,71,13,10,26,10];
+    if (src.length < 33 || !signature.every((v,i) => src[i] === v)) return blob;
+    const ppm = Math.round(dpi / 0.0254);
+    const chunk = new Uint8Array(21);
+    const view = new DataView(chunk.buffer);
+    view.setUint32(0, 9);
+    chunk.set([112,72,89,115], 4); // pHYs
+    view.setUint32(8, ppm);
+    view.setUint32(12, ppm);
+    chunk[16] = 1;
+    view.setUint32(17, crc32(chunk.slice(4,17)));
+    const insertAt = 33; // immediately after IHDR
+    const out = new Uint8Array(src.length + chunk.length);
+    out.set(src.slice(0, insertAt), 0);
+    out.set(chunk, insertAt);
+    out.set(src.slice(insertAt), insertAt + chunk.length);
+    return new Blob([out], { type: 'image/png' });
+  });
+}
+
+function withJpegDpi(blob, dpi=300) {
+  return blob.arrayBuffer().then(buffer => {
+    const src = new Uint8Array(buffer);
+    if (src.length < 4 || src[0] !== 0xff || src[1] !== 0xd8) return blob;
+    let pos = 2;
+    while (pos + 4 < src.length && src[pos] === 0xff) {
+      const marker = src[pos + 1];
+      if (marker === 0xda || marker === 0xd9) break;
+      const len = (src[pos + 2] << 8) | src[pos + 3];
+      if (marker === 0xe0 && len >= 16 &&
+          src[pos+4] === 0x4a && src[pos+5] === 0x46 && src[pos+6] === 0x49 && src[pos+7] === 0x46 && src[pos+8] === 0x00) {
+        const out = src.slice();
+        out[pos + 11] = 1; // dots per inch
+        out[pos + 12] = (dpi >> 8) & 0xff;
+        out[pos + 13] = dpi & 0xff;
+        out[pos + 14] = (dpi >> 8) & 0xff;
+        out[pos + 15] = dpi & 0xff;
+        return new Blob([out], { type: 'image/jpeg' });
+      }
+      if (len < 2) break;
+      pos += 2 + len;
+    }
+
+    const app0 = new Uint8Array([
+      0xff,0xe0,0x00,0x10, 0x4a,0x46,0x49,0x46,0x00,
+      0x01,0x01, 0x01,
+      (dpi >> 8) & 0xff, dpi & 0xff,
+      (dpi >> 8) & 0xff, dpi & 0xff,
+      0x00,0x00
+    ]);
+    const out = new Uint8Array(src.length + app0.length);
+    out.set(src.slice(0, 2), 0);
+    out.set(app0, 2);
+    out.set(src.slice(2), 2 + app0.length);
+    return new Blob([out], { type: 'image/jpeg' });
+  });
+}
+
 function downloadCanvas() {
   if (!els.collageCanvas) return;
 
   const format = els.outputFormat?.value || 'jpeg';
   const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
   const ext = format === 'jpeg' ? 'jpg' : 'png';
+  showStatus(`正在製作 ${ext.toUpperCase()} 300DPI 檔案…`, 'info');
 
-  els.collageCanvas.toBlob((blob) => {
-    if (!blob) return;
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${sanitizeFilename(currentFilename || defaultFilename())}.${ext}`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, mimeType, 0.95);
+  els.collageCanvas.toBlob(async (blob) => {
+    if (!blob) {
+      showStatus('下載失敗，請再試一次', 'error');
+      return;
+    }
+    try {
+      const tagged = format === 'jpeg'
+        ? await withJpegDpi(blob, 300)
+        : await withPngDpi(blob, 300);
+      const url = URL.createObjectURL(tagged);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${sanitizeFilename(currentFilename || defaultFilename())}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      showStatus(`${ext.toUpperCase()} 2480×3508／300DPI 已開始下載`, 'success');
+    } catch (err) {
+      console.error(err);
+      showStatus('下載失敗，請再試一次', 'error');
+    }
+  }, mimeType, 0.98);
 }
 
+
+
+function setOfflineBadge(text, state='ready') {
+  if (!els.offlineModeBadge) return;
+  els.offlineModeBadge.textContent = text;
+  els.offlineModeBadge.dataset.state = state;
+}
+
+async function setupOfflineMode() {
+  if (!('serviceWorker' in navigator)) {
+    setOfflineBadge('此瀏覽器不支援離線鎖定', 'error');
+    if (els.updateAppBtn) els.updateAppBtn.disabled = true;
+    return;
+  }
+  if (!window.isSecureContext) {
+    setOfflineBadge('需 HTTPS 才可離線鎖定', 'error');
+    if (els.updateAppBtn) els.updateAppBtn.disabled = true;
+    return;
+  }
+  try {
+    let reg = await navigator.serviceWorker.getRegistration('./');
+    if (!reg) {
+      reg = await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'all' });
+      await navigator.serviceWorker.ready;
+    }
+    if (navigator.serviceWorker.controller) {
+      setOfflineBadge('離線鎖定已啟用', 'ready');
+    } else {
+      setOfflineBadge('離線已安裝・重開後鎖定', 'pending');
+    }
+  } catch (err) {
+    console.error('Service worker setup failed:', err);
+    setOfflineBadge('離線安裝失敗', 'error');
+  }
+}
+
+async function requestManualAppUpdate() {
+  if (!('serviceWorker' in navigator)) return;
+  const ok = window.confirm('更新程式時會暫時連線下載最新檔案。完成後會重新載入；平時不會用網絡讀取 App 檔案。是否現在更新？');
+  if (!ok) return;
+  if (els.updateAppBtn) els.updateAppBtn.disabled = true;
+  setOfflineBadge('正在連線更新…', 'updating');
+  showStatus('正在檢查及下載完整更新；完成前會保留目前版本', 'info');
+
+  try {
+    let reg = await navigator.serviceWorker.getRegistration('./');
+    if (!reg) {
+      reg = await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'all' });
+      await navigator.serviceWorker.ready;
+    }
+    const worker = reg.active || reg.waiting || reg.installing;
+    if (!worker) throw new Error('No active service worker');
+
+    const channel = new MessageChannel();
+    const response = new Promise((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error('Update timeout')), 120000);
+      channel.port1.onmessage = event => {
+        window.clearTimeout(timer);
+        if (event.data?.ok) resolve(event.data);
+        else reject(new Error(event.data?.error || 'Update failed'));
+      };
+    });
+    worker.postMessage({ type: 'MANUAL_REFRESH' }, [channel.port2]);
+    await response;
+
+    // Only this explicit user action asks the browser to check whether sw.js itself changed.
+    await reg.update();
+    const candidate = reg.installing || reg.waiting;
+    if (candidate && candidate.state !== 'activated') {
+      await new Promise((resolve, reject) => {
+        const timer = window.setTimeout(resolve, 30000);
+        const onState = () => {
+          if (candidate.state === 'activated') { window.clearTimeout(timer); resolve(); }
+          if (candidate.state === 'redundant') { window.clearTimeout(timer); reject(new Error('New service worker became redundant')); }
+        };
+        candidate.addEventListener('statechange', onState);
+        onState();
+      });
+    }
+    setOfflineBadge('更新完成', 'ready');
+    showStatus('更新完成，正在重新載入新版本…', 'success');
+    window.setTimeout(() => window.location.reload(), 350);
+  } catch (err) {
+    console.error(err);
+    setOfflineBadge('更新失敗・仍用舊版', 'error');
+    showStatus('更新失敗；完整舊版本仍然保留，請確認伺服器／網絡後再試', 'error');
+    if (els.updateAppBtn) els.updateAppBtn.disabled = false;
+  }
+}
 
 // ===== CUSTOM DRAG ENGINE v1.2 =====
 const dragRuntime = {

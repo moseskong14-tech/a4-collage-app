@@ -1,8 +1,10 @@
 {
+  "id": "./",
   "name": "A4 專業排版工具",
   "short_name": "A4 排版",
-  "description": "天父功課與圖片排版用的 A4 專業排版工具",
-  "start_url": "./",
+  "description": "離線優先、A4 印刷精準的圖片與文字排版工具",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#dfeaf2",
   "theme_color": "#dfeaf2",

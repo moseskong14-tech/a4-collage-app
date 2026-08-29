@@ -612,3 +612,23 @@ body.kanban-actually-dragging .kanban-item:not(.is-drag-source):not(.kanban-plac
     object-fit:contain !important;
   }
 }
+
+
+/* v0.11.0 — output spacing is independent from the drag board */
+.field-help{margin-top:.28rem;color:#94a3b8;font-size:.7rem;line-height:1.42;}
+.app-offline-badge[data-state="ready"]{border-color:#bbf7d0;background:#f0fdf4;color:#15803d;}
+.app-offline-badge[data-state="pending"],.app-offline-badge[data-state="updating"]{border-color:#fde68a;background:#fffbeb;color:#a16207;}
+.app-offline-badge[data-state="error"]{border-color:#fecaca;background:#fff1f2;color:#be123c;}
+.app-update-btn{display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-height:1.7rem;padding:.24rem .56rem;border:1px solid #dbe4f0;border-radius:999px;background:#fff;color:#475569;font-size:.66rem;font-weight:800;line-height:1;box-shadow:0 3px 8px rgba(148,163,184,.10);touch-action:manipulation;}
+.app-update-btn:hover:not(:disabled){border-color:#bfdbfe;background:#eff6ff;color:#1d4ed8;}
+.app-update-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* These values are UI ergonomics only. Output sliders must never overwrite them. */
+#kanbanBoard{--kanban-col-gap:12px;--kanban-row-gap:10px;}
+@media (max-width:1023px){#kanbanBoard{--kanban-col-gap:4px;--kanban-row-gap:4px;}}
+
+@media(max-width:640px){
+  .app-update-btn{min-height:1.45rem;padding:.18rem .42rem;font-size:.54rem;}
+  .app-update-btn span{display:none;}
+  .field-help{font-size:.62rem;}
+}
