@@ -1,5 +1,5 @@
 const FRAME_ASSET_MAP = window.FRAME_ASSET_MAP || {};
-const APP_BUILD = 'v0.11.0 · 20260830-output-spacing-offline';
+const APP_BUILD = 'v0.12.1 · 20261008-preview-nudge';
 const A4_WIDTH = 2480;
 const A4_HEIGHT = 3508;
 const DEFAULT_AUTHOR_NAME = 'Maggie Fung';
@@ -37,6 +37,12 @@ const historyState = {
   applying: false
 };
 let pendingControlHistorySnapshots = new WeakMap();
+let nudgePopover = null;
+let nudgeStep = 5;
+let activeNudgeId = null;
+let nudgeReconcileNoticeShown = false;
+let lastLayoutGeometry = { items: [], canvasWidth: A4_WIDTH, canvasHeight: A4_HEIGHT };
+let previewSelectionOverlay = null;
 
 const frameAssetCache = {};
 function createDefaultItemMeta() {
@@ -49,12 +55,16 @@ function createDefaultItemMeta() {
     pinned: false,
     weight: 1.0,
     minWidth: null,
-    maxWidth: null
+    maxWidth: null,
+    offsetX: 0,
+    offsetY: 0
   };
 }
 
 function normalizeItem(item) {
   const normalized = { ...createDefaultItemMeta(), ...item };
+  normalized.offsetX = Number.isFinite(Number(item?.offsetX)) ? Number(item.offsetX) : 0;
+  normalized.offsetY = Number.isFinite(Number(item?.offsetY)) ? Number(item.offsetY) : 0;
   normalized.noGapBelow = item?.noGapBelow === true;
   normalized.fixedGap = normalized.noGapBelow ? 0 : null;
   return normalized;
@@ -197,6 +207,7 @@ function bindEvents() {
     });
   });
   els.kanbanBoard.addEventListener('click', onKanbanBoardClick);
+  if (els.collageCanvas) els.collageCanvas.addEventListener('click', onPreviewCanvasClick);
   els.kanbanBoard.addEventListener(
     'pointerup',
     onKanbanBoardPointerUp,
@@ -204,6 +215,22 @@ function bindEvents() {
   );
   els.kanbanBoard.addEventListener('pointerdown', onKanbanPointerDown, { passive: true });
   document.addEventListener('keydown', onKanbanKeyDown);
+  document.addEventListener('click', event => {
+    if (!nudgePopover || nudgePopover.hidden) return;
+    if (nudgePopover.contains(event.target)) return;
+    if (event.target === els.collageCanvas) return;
+    closeNudgePopover();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && nudgePopover && !nudgePopover.hidden) {
+      event.preventDefault();
+      closeNudgePopover();
+    }
+  });
+  window.addEventListener('scroll', () => repositionNudgePopover(), { passive: true });
+  window.addEventListener('resize', () => repositionNudgePopover(), { passive: true });
+  window.visualViewport?.addEventListener('resize', () => repositionNudgePopover(), { passive: true });
+  window.visualViewport?.addEventListener('scroll', () => repositionNudgePopover(), { passive: true });
   window.addEventListener('blur', cancelKanbanDrag);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) cancelKanbanDrag();
@@ -368,8 +395,32 @@ function getLegacyEffectiveColumnGap(raw) {
 }
 
 function stateChanged() {
+  reconcileOffsetsForCurrentLayout();
   throttledDrawCanvas();
   triggerAutoSave();
+}
+
+function reconcileOffsetsForCurrentLayout() {
+  const all = columnsState.flatMap(col => col.items);
+  const groups = [];
+  const seen = new Set();
+  all.forEach(item => {
+    const key = item.groupId || item.id;
+    if (seen.has(key)) return;
+    seen.add(key);
+    groups.push(getNudgeGroup(item.id));
+  });
+  let changed = false;
+  groups.forEach(group => {
+    const current = new Map(group.map(entry => [entry.id, { x: Number(entry.offsetX || 0), y: Number(entry.offsetY || 0) }]));
+    if (!current.size || canApplyNudge(current)) return;
+    group.forEach(entry => { if (entry.offsetX || entry.offsetY) { entry.offsetX = 0; entry.offsetY = 0; changed = true; } });
+  });
+  if (changed && !nudgeReconcileNoticeShown) {
+    nudgeReconcileNoticeShown = true;
+    showStatus('排版改變，部分位置微調已重設', 'warning');
+    window.setTimeout(() => { nudgeReconcileNoticeShown = false; }, 1200);
+  }
 }
 
 function captureHistorySnapshot() {
@@ -741,6 +792,7 @@ async function createPreview(src, maxSize = 520, quality = 0.94) {
 }
 
 function renderKanban() {
+  closeNudgePopover();
   els.kanbanBoard.innerHTML = '';
   const colClass = columnsState.length === 1 ? 'xl:grid-cols-1' : columnsState.length === 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3';
   els.kanbanBoard.className = `kanban-board grid grid-cols-1 md:grid-cols-2 ${colClass} gap-0`;
@@ -814,7 +866,219 @@ function renderKanban() {
     const isMobileBoard = window.matchMedia('(max-width: 1023px)').matches;
     // removed Sortable
   });
+}
 
+function ensureNudgePopover() {
+  if (nudgePopover) return nudgePopover;
+  nudgePopover = document.createElement('section');
+  nudgePopover.className = 'a4-nudge-popover';
+  nudgePopover.hidden = true;
+  nudgePopover.setAttribute('role', 'dialog');
+  nudgePopover.setAttribute('aria-label', '微調位置');
+  nudgePopover.innerHTML = `
+    <div class="a4-nudge-head"><strong>微調位置</strong><button type="button" class="a4-nudge-close" aria-label="關閉">×</button></div>
+    <div class="a4-nudge-group-label" data-nudge-group></div>
+    <div class="a4-nudge-pad" aria-label="方向鍵">
+      <button type="button" data-nudge-dir="up" aria-label="向上">↑</button>
+      <button type="button" data-nudge-dir="left" aria-label="向左">←</button>
+      <button type="button" data-nudge-dir="right" aria-label="向右">→</button>
+      <button type="button" data-nudge-dir="down" aria-label="向下">↓</button>
+    </div>
+    <div class="a4-nudge-steps" role="group" aria-label="移動幅度">
+      <button type="button" data-nudge-step="1">1px</button><button type="button" data-nudge-step="5">5px</button><button type="button" data-nudge-step="10">10px</button>
+    </div>
+    <div class="a4-nudge-values"><span>水平 X <b data-nudge-x>0</b> px</span><span>垂直 Y <b data-nudge-y>0</b> px</span></div>
+    <button type="button" class="a4-nudge-toggle" data-nudge-toggle>數值輸入</button>
+    <div class="a4-nudge-inputs" data-nudge-inputs hidden>
+      <label>水平 X <input data-nudge-input="x" type="number" inputmode="decimal" step="1"><span>px</span></label>
+      <label>垂直 Y <input data-nudge-input="y" type="number" inputmode="decimal" step="1"><span>px</span></label>
+      <small data-nudge-error aria-live="polite"></small>
+    </div>
+    <button type="button" class="a4-nudge-reset" data-nudge-reset>歸零</button>`;
+  document.body.appendChild(nudgePopover);
+  nudgePopover.addEventListener('click', event => {
+    const dir = event.target.closest('[data-nudge-dir]')?.dataset.nudgeDir;
+    if (dir) { event.preventDefault(); nudgeByDirection(dir); return; }
+    const step = event.target.closest('[data-nudge-step]')?.dataset.nudgeStep;
+    if (step) { nudgeStep = Number(step); updateNudgePopover(); return; }
+    if (event.target.closest('[data-nudge-reset]')) { event.preventDefault(); setNudgeOffset(0, 0); return; }
+    if (event.target.closest('[data-nudge-toggle]')) {
+      const panel = nudgePopover.querySelector('[data-nudge-inputs]');
+      panel.hidden = !panel.hidden;
+      event.target.textContent = panel.hidden ? '數值輸入' : '收起數值';
+      if (!panel.hidden) nudgePopover.querySelector('[data-nudge-input="x"]').focus();
+    }
+    if (event.target.closest('.a4-nudge-close')) closeNudgePopover();
+  });
+  nudgePopover.addEventListener('change', event => {
+    const input = event.target.closest('[data-nudge-input]');
+    if (!input) return;
+    const x = nudgePopover.querySelector('[data-nudge-input="x"]');
+    const y = nudgePopover.querySelector('[data-nudge-input="y"]');
+    const values = [x.value.trim(), y.value.trim()];
+    if (!values.every(value => value !== '' && Number.isFinite(Number(value)))) {
+      nudgeError('請輸入有效數字'); updateNudgePopover(); return;
+    }
+    setNudgeOffset(Number(values[0]), Number(values[1]));
+  });
+  nudgePopover.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  return nudgePopover;
+}
+
+function ensurePreviewSelectionOverlay() {
+  if (previewSelectionOverlay) return previewSelectionOverlay;
+  previewSelectionOverlay = document.createElement('div');
+  previewSelectionOverlay.className = 'a4-preview-selection-overlay';
+  previewSelectionOverlay.hidden = true;
+  previewSelectionOverlay.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(previewSelectionOverlay);
+  return previewSelectionOverlay;
+}
+
+function getPreviewItemViewportRect(id) {
+  const item = lastLayoutGeometry.items.find(entry => entry.id === id);
+  const canvas = els.collageCanvas;
+  if (!item || !canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  const scale = Math.min(rect.width / (lastLayoutGeometry.canvasWidth || A4_WIDTH), rect.height / (lastLayoutGeometry.canvasHeight || A4_HEIGHT));
+  const drawnWidth = (lastLayoutGeometry.canvasWidth || A4_WIDTH) * scale;
+  const drawnHeight = (lastLayoutGeometry.canvasHeight || A4_HEIGHT) * scale;
+  const originX = rect.left + (rect.width - drawnWidth) / 2;
+  const originY = rect.top + (rect.height - drawnHeight) / 2;
+  return {
+    left: originX + item.x * scale,
+    top: originY + item.y * scale,
+    right: originX + (item.x + item.width) * scale,
+    bottom: originY + (item.y + item.height) * scale,
+    width: item.width * scale,
+    height: item.height * scale
+  };
+}
+
+function updatePreviewSelectionOverlay() {
+  const overlay = ensurePreviewSelectionOverlay();
+  if (!activeNudgeId) { overlay.hidden = true; return; }
+  const rect = getPreviewItemViewportRect(activeNudgeId);
+  if (!rect) { overlay.hidden = true; return; }
+  overlay.hidden = false;
+  overlay.style.left = `${Math.round(rect.left)}px`;
+  overlay.style.top = `${Math.round(rect.top)}px`;
+  overlay.style.width = `${Math.max(1, Math.round(rect.width))}px`;
+  overlay.style.height = `${Math.max(1, Math.round(rect.height))}px`;
+}
+
+function getPreviewCanvasPoint(event) {
+  const canvas = els.collageCanvas;
+  const rect = canvas.getBoundingClientRect();
+  const intrinsicWidth = canvas.width || A4_WIDTH;
+  const intrinsicHeight = canvas.height || A4_HEIGHT;
+  const scale = Math.min(rect.width / intrinsicWidth, rect.height / intrinsicHeight);
+  const drawnWidth = intrinsicWidth * scale;
+  const drawnHeight = intrinsicHeight * scale;
+  const originX = rect.left + (rect.width - drawnWidth) / 2;
+  const originY = rect.top + (rect.height - drawnHeight) / 2;
+  return {
+    x: (event.clientX - originX) / scale,
+    y: (event.clientY - originY) / scale,
+    inside: event.clientX >= originX && event.clientX <= originX + drawnWidth && event.clientY >= originY && event.clientY <= originY + drawnHeight
+  };
+}
+
+function onPreviewCanvasClick(event) {
+  const point = getPreviewCanvasPoint(event);
+  if (!point.inside) { closeNudgePopover(); return; }
+  const hit = [...lastLayoutGeometry.items].reverse().find(item => point.x >= item.x && point.x <= item.x + item.width && point.y >= item.y && point.y <= item.y + item.height);
+  if (hit) openNudgePopover(hit.id, getPreviewItemViewportRect(hit.id));
+  else closeNudgePopover();
+}
+
+function closeNudgePopover() {
+  if (!nudgePopover) return;
+  nudgePopover.hidden = true;
+  if (previewSelectionOverlay) previewSelectionOverlay.hidden = true;
+  activeNudgeId = null;
+}
+
+function openNudgePopover(id, anchorRect = null) {
+  const item = findKanbanItemById(id);
+  if (!item) return;
+  activeNudgeId = id;
+  const pop = ensureNudgePopover();
+  pop.hidden = false;
+  updateNudgePopover();
+  updatePreviewSelectionOverlay();
+  repositionNudgePopover(anchorRect || getPreviewItemViewportRect(id));
+}
+
+function repositionNudgePopover(anchorRect = null) {
+  if (!nudgePopover || nudgePopover.hidden || !activeNudgeId) return;
+  const rect = anchorRect || getPreviewItemViewportRect(activeNudgeId);
+  if (!rect) return closeNudgePopover();
+  const vw = window.visualViewport?.width || window.innerWidth;
+  const vh = window.visualViewport?.height || window.innerHeight;
+  const margin = 8;
+  const pw = nudgePopover.offsetWidth || 204;
+  const ph = nudgePopover.offsetHeight || 280;
+  let left = rect.right + 8, top = rect.top + Math.min(8, Math.max(0, (rect.height - ph) / 2));
+  if (left + pw > vw - margin) left = rect.left - pw - 8;
+  if (left < margin) { left = Math.max(margin, Math.min(vw - pw - margin, rect.left + (rect.width - pw) / 2)); top = rect.bottom + 8; }
+  if (top + ph > vh - margin) top = Math.max(margin, vh - ph - margin);
+  nudgePopover.style.left = `${Math.round(left)}px`;
+  nudgePopover.style.top = `${Math.round(top)}px`;
+  updatePreviewSelectionOverlay();
+}
+
+function getNudgeGroup(id) {
+  const item = findKanbanItemById(id);
+  if (!item?.groupId) return [item].filter(Boolean);
+  return columnsState.flatMap(col => col.items.filter(entry => entry.groupId === item.groupId));
+}
+
+function nudgeError(message) {
+  const el = nudgePopover?.querySelector('[data-nudge-error]');
+  if (el) el.textContent = message;
+  showStatus(message, 'warning');
+}
+
+function updateNudgePopover() {
+  const item = findKanbanItemById(activeNudgeId);
+  if (!item || !nudgePopover) return;
+  nudgePopover.querySelector('[data-nudge-x]').textContent = String(Number(item.offsetX || 0));
+  nudgePopover.querySelector('[data-nudge-y]').textContent = String(Number(item.offsetY || 0));
+  nudgePopover.querySelector('[data-nudge-input="x"]').value = String(Number(item.offsetX || 0));
+  nudgePopover.querySelector('[data-nudge-input="y"]').value = String(Number(item.offsetY || 0));
+  nudgePopover.querySelectorAll('[data-nudge-step]').forEach(button => button.classList.toggle('is-active', Number(button.dataset.nudgeStep) === nudgeStep));
+  const group = getNudgeGroup(activeNudgeId);
+  nudgePopover.querySelector('[data-nudge-group]').textContent = group.length > 1 ? '貼齊組：整組移動' : '';
+}
+
+function nudgeByDirection(direction) {
+  const item = findKanbanItemById(activeNudgeId);
+  if (!item) return;
+  const dx = direction === 'left' ? -nudgeStep : direction === 'right' ? nudgeStep : 0;
+  const dy = direction === 'up' ? -nudgeStep : direction === 'down' ? nudgeStep : 0;
+  setNudgeOffset(Number(item.offsetX || 0) + dx, Number(item.offsetY || 0) + dy);
+}
+
+function setNudgeOffset(x, y) {
+  const group = getNudgeGroup(activeNudgeId);
+  if (!group.length || ![x, y].every(Number.isFinite)) return;
+  const item = group[0];
+  const dx = x - Number(item.offsetX || 0), dy = y - Number(item.offsetY || 0);
+  if (!dx && !dy) { updateNudgePopover(); return; }
+  const proposed = new Map(group.map(entry => [entry.id, { x: Number(entry.offsetX || 0) + dx, y: Number(entry.offsetY || 0) + dy }]));
+  if (!canApplyNudge(proposed)) { nudgeError('已到頁面邊界或會與其他圖片重疊'); return; }
+  pushHistorySnapshot();
+  group.forEach(entry => { entry.offsetX = proposed.get(entry.id).x; entry.offsetY = proposed.get(entry.id).y; });
+  stateChanged();
+  updateNudgePopover();
+  requestAnimationFrame(() => { updatePreviewSelectionOverlay(); repositionNudgePopover(); });
+  showStatus('位置已儲存', 'success');
 }
 
 function onKanbanBoardClick(e) {
@@ -1007,6 +1271,7 @@ function drawCanvas() {
   const canvas = els.collageCanvas;
   const ctx = canvas.getContext('2d');
   const input = buildLayoutInput();
+  lastLayoutGeometry = { items: [], canvasWidth: A4_WIDTH, canvasHeight: A4_HEIGHT };
 
   ctx.clearRect(0, 0, A4_WIDTH, A4_HEIGHT);
 
@@ -2222,15 +2487,93 @@ function applyPatternColorFromPrimaryImage() {
 
 
 function renderLayout(ctx, layoutResult, input) {
-  layoutResult.columns.forEach(column => {
+  const positioned = applyOffsetsToLayout(layoutResult, input);
+  lastLayoutGeometry = {
+    items: positioned.columns.flatMap(column => column.groups.flatMap(group => group.items.map(item => ({
+      id: item.id, x: item.x, y: item.y, width: item.width, height: item.height
+    })))),
+    canvasWidth: A4_WIDTH,
+    canvasHeight: A4_HEIGHT
+  };
+  positioned.columns.forEach(column => {
     column.groups.forEach(group => {
       group.items.forEach(item => {
         const data = getImageNaturalSize(item.id);
         if (!data) return;
         drawImagePlain(ctx, data.img, item.x, item.y, item.width, item.height, input.imageBorderStyle);
       });
-    });
+      });
   });
+  updatePreviewSelectionOverlay();
+  if (activeNudgeId) repositionNudgePopover();
+}
+
+function applyOffsetsToLayout(layoutResult, input) {
+  const items = [];
+  layoutResult.columns.forEach(column => column.groups.forEach(group => group.items.forEach(item => items.push(item))));
+  const moved = items.map(item => {
+    const source = item.sourceItem || {};
+    return { ...item, x: item.x + Number(source.offsetX || 0), y: item.y + Number(source.offsetY || 0) };
+  });
+  const movedById = new Map(moved.map(item => [item.id, item]));
+  const columns = layoutResult.columns.map(column => ({
+    ...column,
+    groups: column.groups.map(group => ({
+      ...group,
+      items: group.items.map(item => movedById.get(item.id) || item),
+      groupBox: group.groupBox ? { ...group.groupBox, x: group.groupBox.x + Number(group.items[0]?.sourceItem?.offsetX || 0), y: group.groupBox.y + Number(group.items[0]?.sourceItem?.offsetY || 0) } : group.groupBox
+    }))
+  }));
+  return { ...layoutResult, columns };
+}
+
+function getCurrentLayoutResult() {
+  const input = buildLayoutInput();
+  const safeMargin = getFrameMarginForLayout(input.frameStyle);
+  const isTwoColumn = input.layoutMode === '2';
+  const margin = isTwoColumn ? Math.min(Number(safeMargin) || 90, 55) : safeMargin;
+  const outerPadding = isTwoColumn ? 0 : 40;
+  input.safeArea = { x: margin + outerPadding, y: margin + outerPadding, width: A4_WIDTH - (margin + outerPadding) * 2, height: A4_HEIGHT - (margin + outerPadding) * 2 };
+  if (input.layoutMode === 'special_2_1') return { input, layout: computeSpecialDraftLayout(input) };
+  if (input.layoutMode === 'special_1_2') return { input, layout: computeSpecialOneTopTwoBottomLayout(input) };
+  return { input, layout: computeLayout(input) };
+}
+
+function getFrameMarginForLayout(style) {
+  if (FRAME_ASSET_MAP[style]) return FRAME_ASSET_MAP[style]?.margin ?? 118;
+  if (['editorial-luxe','artdeco-ornament'].includes(style)) return 190;
+  if (['parchment-classic','chapel-ornament','botanical-corners','washi-soft','botanical-atelier','papercut-bloom','watercolor-floral','spring-daisy','rose-garden','fresh-vine','ginkgo','sakura','hydrangea','vintage-lace','geometric-arch','starry-night','confetti-corners','bamboo-zen','ribbon-corners','journal-tape','birthday-confetti','minimal-dots','pastel-grid','ribbon-corner','school-notes','starry-frame','photo-mat'].includes(style)) return 176;
+  if (style === 'solid-white') return 100;
+  if (style === 'double') return 110;
+  if (style === 'elegant') return 120;
+  return 90;
+}
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function canApplyNudge(proposed) {
+  const current = getCurrentLayoutResult();
+  const baseItems = current.layout.columns.flatMap(column => column.groups.flatMap(group => group.items));
+  const positioned = baseItems.map(item => {
+    const source = item.sourceItem || {};
+    const p = proposed.get(item.id);
+    const ox = p ? p.x : Number(source.offsetX || 0);
+    const oy = p ? p.y : Number(source.offsetY || 0);
+    return { ...item, x: item.x + ox, y: item.y + oy };
+  });
+  const safe = current.input.safeArea;
+  const pad = current.input.imageBorderStyle === 'soft-white' ? 10 : 0;
+  for (const item of positioned) {
+    if (item.x - pad < safe.x || item.y - pad < safe.y || item.x + item.width + pad > safe.x + safe.width || item.y + item.height + pad > safe.y + safe.height) return false;
+  }
+  for (let i = 0; i < positioned.length; i += 1) {
+    for (let j = i + 1; j < positioned.length; j += 1) {
+      if (positioned[i].id !== positioned[j].id && rectsOverlap(positioned[i], positioned[j])) return false;
+    }
+  }
+  return true;
 }
 
 
